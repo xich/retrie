@@ -107,6 +107,6 @@ trySync io = catch (Right <$> io) $ \e ->
 missingSyntax :: String -> a
 missingSyntax constructor = error $ unlines
   [ "Missing syntax support: " ++ constructor
-  , "Please file an issue at https://github.com/facebookincubator/retrie/issues"
+  , "Please file an issue at https://github.com/xich/retrie/issues"
   , "with an example of the rewrite you are attempting and we'll add it."
   ]
