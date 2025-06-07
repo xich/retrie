@@ -1,0 +1,69 @@
+name: retrie CI
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        ghc: ['9.2.8', '9.4.8', '9.6.7', '9.8.4']
+        os: [ubuntu-latest, macos-latest]
+    name: GHC ${{ matrix.ghc }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Setup GHC
+        id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ matrix.ghc }}
+
+      - name: Check Versions
+        shell: bash
+        run: |
+          ghc --version
+          cabal --version
+
+      - name: Cache Cabal Packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cabal/packages
+            ~/.cabal/store
+            dist-newstyle
+          key: ${{ runner.os }}-${{ steps.setup.outputs.ghc-version }}-${{ steps.setup.outputs.cabal-version }}-${{ hashFiles('retrie.cabal') }}
+          restore-keys: ${{ runner.os }}-${{ steps.setup.outputs.ghc-version }}-${{ steps.setup.outputs.cabal-version }}-
+
+      - name: Run cabal update
+        run: cabal update
+
+      - name: Build
+        shell: bash
+        run: cabal build
+
+      - name: Haddock
+        shell: bash
+        run: cabal haddock
+
+#      - name: Test
+#        shell: bash
+#        run: cabal test
+       # For debugging the workflow interactively
+#      - uses: mxschmitt/action-tmate@v3
+#        with:
+#            limit-access-to-actor: true
+
