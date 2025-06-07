@@ -5,14 +5,14 @@
 -- LICENSE file in the root directory of this source tree.
 --
 name: retrie
-version: 1.2.3
+version: 2.0.0
 synopsis: A powerful, easy-to-use codemodding tool for Haskell.
-homepage: https://github.com/facebookincubator/retrie
-bug-reports: https://github.com/facebookincubator/retrie/issues
+homepage: https://github.com/xich/retrie
+bug-reports: https://github.com/xich/retrie/issues
 license: MIT
 license-file: LICENSE
-author: Andrew Farmer <anfarmer@fb.com>
-maintainer: Andrew Farmer <anfarmer@fb.com>
+author: Andrew Farmer <andrew@andrewfarmer.name>
+maintainer: Andrew Farmer <andrew@andrewfarmer.name>
 copyright: 
   Copyright (c) 2025 Andrew Farmer
   Copyright (c) 2020-2024 Facebook, Inc. and its affiliates.
@@ -183,4 +183,4 @@ test-suite test
 
 source-repository head
   type:     git
-  location: https://github.com/facebookincubator/retrie
+  location: https://github.com/xich/retrie

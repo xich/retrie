@@ -296,8 +296,6 @@ To report a bug in the result of a rewrite, please create a test case ([example]
 
 To report other bugs, please create a GitHub issue.
 
-[![Build Status](https://travis-ci.com/facebookincubator/retrie.svg?branch=master)](https://travis-ci.com/facebookincubator/retrie)
-
 # License
 
 Retrie is MIT licensed, as found in the [LICENSE](LICENSE) file.
