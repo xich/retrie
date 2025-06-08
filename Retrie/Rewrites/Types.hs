@@ -22,11 +22,7 @@ import Retrie.Types
 typeSynonymsToRewrites
   :: [(FastString, Direction)]
   -> AnnotatedModule
-#if __GLASGOW_HASKELL__ < 900
-  -> IO (UniqFM [Rewrite (LHsType GhcPs)])
-#else
   -> IO (UniqFM FastString [Rewrite (LHsType GhcPs)])
-#endif
 typeSynonymsToRewrites specs am = fmap astA $ transformA am $ \ m -> do
   let
     fsMap = uniqBag specs

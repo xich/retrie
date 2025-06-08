@@ -4,7 +4,6 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE TupleSections #-}
 module Retrie.Rewrites.Function
   ( dfnsToRewrites
@@ -82,16 +81,8 @@ irrefutablePat = go . unLoc
     go WildPat{} = True
     go VarPat{} = True
     go (LazyPat _ p) = irrefutablePat p
-#if __GLASGOW_HASKELL__ <= 904
-    go (AsPat _ _ p) = irrefutablePat p
-#else
     go (AsPat _ _ _ p) = irrefutablePat p
-#endif
-#if __GLASGOW_HASKELL__ < 904
-    go (ParPat _ p) = irrefutablePat p
-#else
     go (ParPat _ _ p _) = irrefutablePat p
-#endif
     go (BangPat _ p) = irrefutablePat p
     go _ = False
 

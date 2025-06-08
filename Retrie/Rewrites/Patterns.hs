@@ -4,7 +4,6 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -87,11 +86,7 @@ asPat patName params = do
   mkConPatIn patName params'
   where
 
-#if __GLASGOW_HASKELL__ <= 904
-    convertTyVars :: (Monad m) => [Void] -> TransformT m [HsPatSigType GhcPs]
-#else
     convertTyVars :: (Monad m) => [Void] -> TransformT m [HsConPatTyArg GhcPs]
-#endif
     convertTyVars _ = return []
 
     convertFields :: (Monad m) => [RecordPatSynField GhcPs]
@@ -102,13 +97,6 @@ asPat patName params = do
     convertField :: (Monad m) => RecordPatSynField GhcPs
                       -> TransformT m (LHsRecField GhcPs (LPat GhcPs))
     convertField RecordPatSynField{..} = do
-#if __GLASGOW_HASKELL__ < 904
-      hsRecFieldLbl <- mkLoc $ recordPatSynField
-      hsRecFieldArg <- mkVarPat recordPatSynPatVar
-      let hsRecPun = False
-      let hsRecFieldAnn = noAnn
-      mkLocA (SameLine 0) HsRecField{..}
-#else
       s <- uniqueSrcSpanT
       an <- mkEpAnn (SameLine 0) NoEpAnns
       let srcspan = SrcSpanAnn an s
@@ -117,7 +105,6 @@ asPat patName params = do
       let hfbPun = False
           hfbAnn = noAnn
       mkLocA (SameLine 0) HsFieldBind{..}
-#endif
 
 mkExpRewrite
   :: Direction

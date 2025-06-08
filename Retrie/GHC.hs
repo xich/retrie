@@ -4,7 +4,6 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 module Retrie.GHC
   ( module Retrie.GHC
@@ -54,11 +53,7 @@ import GHC.Types.SrcLoc
 import GHC.Types.Unique
 import GHC.Types.Unique.FM
 import GHC.Types.Unique.Set
-#if __GLASGOW_HASKELL__ >= 906
 import Language.Haskell.Syntax.Basic as GHC.Unit.Module.Name
-#else
-import GHC.Unit.Module.Name
-#endif
 import GHC.Utils.Outputable (Outputable (ppr))
 
 import Data.Bifunctor (second)
@@ -74,12 +69,6 @@ dLPat = Just
 -- | Will always give a location, but it may be noSrcSpan.
 dLPatUnsafe :: LPat (GhcPass p) -> LPat (GhcPass p)
 dLPatUnsafe = id
-
-#if __GLASGOW_HASKELL__ == 808
-stripSrcSpanPat :: LPat (GhcPass p) -> Pat (GhcPass p)
-stripSrcSpanPat (XPat (L _  p)) = stripSrcSpanPat p
-stripSrcSpanPat p = p
-#endif
 
 rdrFS :: RdrName -> FastString
 rdrFS (Qual m n) = mconcat [moduleNameFS m, fsDot, occNameFS n]
@@ -97,11 +86,7 @@ tyvarRdrName (HsTyVar _ _ n) = Just n
 tyvarRdrName _ = Nothing
 
 -- fixityDecls :: HsModule -> [(LIdP p, Fixity)]
-#if __GLASGOW_HASKELL__ >= 906
 fixityDecls :: HsModule GhcPs -> [(LocatedN RdrName, Fixity)]
-#else
-fixityDecls :: HsModule -> [(LocatedN RdrName, Fixity)]
-#endif
 fixityDecls m =
   [ (nm, fixity)
   | L _ (SigD _ (FixSig _ (FixitySig _ nms fixity))) <- hsmodDecls m
@@ -109,11 +94,7 @@ fixityDecls m =
   ]
 
 ruleInfo :: RuleDecl GhcPs -> [RuleInfo]
-#if __GLASGOW_HASKELL__ >= 906
 ruleInfo (HsRule _ (L _ riName) _ tyBs valBs riLHS riRHS) =
-#else
-ruleInfo (HsRule _ (L _ (_, riName)) _ tyBs valBs riLHS riRHS) =
-#endif
   let
     riQuantifiers =
       map unLoc (tyBindersToLocatedRdrNames (fromMaybe [] tyBs)) ++
@@ -142,11 +123,6 @@ data RuleInfo = RuleInfo
   , riRHS :: LHsExpr GhcPs
   }
 
-#if __GLASGOW_HASKELL__ < 810
-noExtField :: NoExt
-noExtField = noExt
-#endif
-
 overlaps :: SrcSpan -> SrcSpan -> Bool
 overlaps (RealSrcSpan s1 _) (RealSrcSpan s2 _) =
      srcSpanFile s1 == srcSpanFile s2 &&
@@ -174,17 +150,9 @@ uniqBag :: Uniquable a => [(a,b)] -> UniqFM a [b]
 uniqBag = listToUFM_C (++) . map (second pure)
 
 getRealLoc :: SrcLoc -> Maybe RealSrcLoc
-#if __GLASGOW_HASKELL__ < 900
-getRealLoc (RealSrcLoc l) = Just l
-#else
 getRealLoc (RealSrcLoc l _) = Just l
-#endif
 getRealLoc _ = Nothing
 
 getRealSpan :: SrcSpan -> Maybe RealSrcSpan
-#if __GLASGOW_HASKELL__ < 900
-getRealSpan (RealSrcSpan s) = Just s
-#else
 getRealSpan (RealSrcSpan s _) = Just s
-#endif
 getRealSpan _ = Nothing

@@ -55,18 +55,12 @@ instance PatternMap TupArgMap where
   mAlter env vs tupArg f m = go tupArg
     where
       go (Present _ e) = m { tamPresent = mAlter env vs e  f (tamPresent m) }
-#if __GLASGOW_HASKELL__ < 900
-      go XTupArg{} = missingSyntax "XTupArg"
-#endif
       go (Missing _) = m { tamMissing = mAlter env vs () f (tamMissing m) }
 
   mMatch :: MatchEnv -> Key TupArgMap -> (Substitution, TupArgMap a) -> [(Substitution, a)]
   mMatch env = go
     where
       go (Present _ e) = mapFor tamPresent >=> mMatch env e
-#if __GLASGOW_HASKELL__ < 900
-      go XTupArg{} = const []
-#endif
       go (Missing _) = mapFor tamMissing >=> mMatch env ()
 
 ------------------------------------------------------------------------
@@ -187,9 +181,6 @@ instance PatternMap LMap where
       go HsRat{} = missingSyntax "HsRat"
       go HsFloatPrim{} = missingSyntax "HsFloatPrim"
       go HsDoublePrim{} = missingSyntax "HsDoublePrim"
-#if __GLASGOW_HASKELL__ < 900
-      go XLit{} = missingSyntax "XLit"
-#endif
 
   mMatch :: MatchEnv -> Key LMap -> (Substitution, LMap a) -> [(Substitution, a)]
   mMatch _   _   (_,LMEmpty) = []
@@ -354,11 +345,7 @@ instance PatternMap EMap where
         m { emCase = mAlter env vs s (toA (mAlter env vs mg f)) (emCase m) }
       go (HsDo _ sc ss) =
         m { emDo = mAlter env vs sc (toA (mAlter env vs (unLoc ss) f)) (emDo m) }
-#if __GLASGOW_HASKELL__ < 900
-      go (HsIf _ _ c tr fl) =
-#else
       go (HsIf _ c tr fl) =
-#endif
         m { emIf = mAlter env vs c
                       (toA (mAlter env vs tr
                           (toA (mAlter env vs fl f)))) (emIf m) }
@@ -367,31 +354,18 @@ instance PatternMap EMap where
       go (HsLam _ mg) = m { emLam   = mAlter env vs mg f (emLam m) }
       go (HsOverLit _ ol) = m { emOverLit = mAlter env vs (ol_val ol) f (emOverLit m) }
       go (NegApp _ e' _) = m { emNegApp = mAlter env vs e' f (emNegApp m) }
-#if __GLASGOW_HASKELL__ < 904
-      go (HsPar _ e') = m { emPar  = mAlter env vs e' f (emPar m) }
-#else
       go (HsPar _ _ e' _) = m { emPar  = mAlter env vs e' f (emPar m) }
-#endif
       go (OpApp _ l o r) =
         m { emOpApp = mAlter env vs o (toA (mAlter env vs l (toA (mAlter env vs r f)))) (emOpApp m) }
-#if __GLASGOW_HASKELL__ < 904
-      go (RecordCon _ v fs) =
-        m { emRecordCon = mAlter env vs (unLoc v) (toA (mAlter env vs (fieldsToRdrNames $ rec_flds fs) f)) (emRecordCon m) }
-#else
       go (RecordCon _ v fs) =
         m { emRecordCon = mAlter env vs (unLoc v :: RdrName) (toA (mAlter env vs (rec_flds fs) f)) (emRecordCon m) }
-#endif
       go (RecordUpd _ e' fs) =
         m { emRecordUpd = mAlter env vs e' (toA (mAlter env vs (fieldsToRdrNamesUpd fs) f)) (emRecordUpd m) }
       go (SectionL _ lhs o) =
         m { emSecL = mAlter env vs o (toA (mAlter env vs lhs f)) (emSecL m) }
       go (SectionR _ o rhs) =
         m { emSecR = mAlter env vs o (toA (mAlter env vs rhs f)) (emSecR m) }
-#if __GLASGOW_HASKELL__ < 904
-      go (HsLet _ lbs e') =
-#else
       go (HsLet _ _ lbs _ e') =
-#endif
         let
           bs = collectLocalBinders CollNoDictBinders lbs
           env' = foldr extendAlphaEnvInternal env bs
@@ -403,51 +377,12 @@ instance PatternMap EMap where
       go ArithSeq{} = missingSyntax "ArithSeq"
       go (ExprWithTySig _ e' (HsWC _ (L _ (HsSig _ _ ty)))) =
         m { emExprWithTySig = mAlter env vs e' (toA (mAlter env vs ty f)) (emExprWithTySig m) }
-#if __GLASGOW_HASKELL__ < 900
-      go XExpr{} = missingSyntax "XExpr"
-      go ExprWithTySig{} = missingSyntax "ExprWithTySig"
-      go HsSCC{} = missingSyntax "HsSCC"
-      go HsCoreAnn{} = missingSyntax "HsCoreAnn"
-      go HsTickPragma{} = missingSyntax "HsTickPragma"
-      go HsWrap{} = missingSyntax "HsWrap"
-#else
       go HsPragE{} = missingSyntax "HsPragE"
-#endif
-#if __GLASGOW_HASKELL__ < 904
-      go HsBracket{} = missingSyntax "HsBracket"
-      go HsRnBracketOut{} = missingSyntax "HsRnBracketOut"
-      go HsTcBracketOut{} = missingSyntax "HsTcBracketOut"
-      go HsSpliceE{} = missingSyntax "HsSpliceE"
-      go HsProc{} = missingSyntax "HsProc"
-      go HsStatic{} = missingSyntax "HsStatic"
-#else
       go HsTypedBracket{} = missingSyntax "HsTypedBracket"
       go HsUntypedBracket{} = missingSyntax "HsUntypedBracket"
-#if __GLASGOW_HASKELL__ < 906
-      go HsSpliceE{} = missingSyntax "HsSpliceE"
-#endif
-#endif
-#if __GLASGOW_HASKELL__ < 810
-      go HsArrApp{} = missingSyntax "HsArrApp"
-      go HsArrForm{} = missingSyntax "HsArrForm"
-      go EWildPat{} = missingSyntax "EWildPat"
-      go EAsPat{} = missingSyntax "EAsPat"
-      go EViewPat{} = missingSyntax "EViewPat"
-      go ELazyPat{} = missingSyntax "ELazyPat"
-#endif
-#if __GLASGOW_HASKELL__ < 904
-      go HsTick{} = missingSyntax "HsTick"
-      go HsBinTick{} = missingSyntax "HsBinTick"
-#endif
       go HsUnboundVar{} = missingSyntax "HsUnboundVar"
-#if __GLASGOW_HASKELL__ < 904
-      go HsRecFld{} = missingSyntax "HsRecFld"
-#endif
       go HsOverLabel{} = missingSyntax "HsOverLabel"
       go HsAppType{} = missingSyntax "HsAppType"
-#if __GLASGOW_HASKELL__ < 904
-      go HsConLikeOut{} = missingSyntax "HsConLikeOut"
-#endif
       go ExplicitSum{} = missingSyntax "ExplicitSum"
 
   mMatch :: MatchEnv -> Key EMap -> (Substitution, EMap a) -> [(Substitution, a)]
@@ -460,41 +395,24 @@ instance PatternMap EMap where
       go (HsApp _ l r) = mapFor emApp >=> mMatch env l >=> mMatch env r
       go (HsCase _ s mg) = mapFor emCase >=> mMatch env s >=> mMatch env mg
       go (HsDo _ sc ss) = mapFor emDo >=> mMatch env sc >=> mMatch env (unLoc ss)
-#if __GLASGOW_HASKELL__ < 900
-      go (HsIf _ _ c tr fl) =
-#else
       go (HsIf _ c tr fl) =
-#endif
         mapFor emIf >=> mMatch env c >=> mMatch env tr >=> mMatch env fl
       go (HsIPVar _ (HsIPName ip)) = mapFor emIPVar >=> mMatch env ip
       go (HsLam _ mg) = mapFor emLam >=> mMatch env mg
       go (HsLit _ l) = mapFor emLit >=> mMatch env l
       go (HsOverLit _ ol) = mapFor emOverLit >=> mMatch env (ol_val ol)
-#if __GLASGOW_HASKELL__ < 904
-      go (HsPar _ e') = mapFor emPar >=> mMatch env e'
-#else
       go (HsPar _ _ e' _) = mapFor emPar >=> mMatch env e'
-#endif
       go (HsVar _ v) = mapFor emVar >=> mMatch env (unLoc v)
       go (OpApp _ l o r) =
         mapFor emOpApp >=> mMatch env o >=> mMatch env l >=> mMatch env r
       go (NegApp _ e' _) = mapFor emNegApp >=> mMatch env e'
-#if __GLASGOW_HASKELL__ < 904
-      go (RecordCon _ v fs) =
-        mapFor emRecordCon >=> mMatch env (unLoc v) >=> mMatch env (fieldsToRdrNames $ rec_flds fs)
-#else
       go (RecordCon _ v fs) =
         mapFor emRecordCon >=> mMatch env (unLoc v) >=> mMatch env (rec_flds fs)
-#endif
       go (RecordUpd _ e' fs) =
         mapFor emRecordUpd >=> mMatch env e' >=> mMatch env (fieldsToRdrNamesUpd fs)
       go (SectionL _ lhs o) = mapFor emSecL >=> mMatch env o >=> mMatch env lhs
       go (SectionR _ o rhs) = mapFor emSecR >=> mMatch env o >=> mMatch env rhs
-#if __GLASGOW_HASKELL__ < 904
-      go (HsLet _ lbs e') =
-#else
       go (HsLet _ _ lbs _ e') =
-#endif
         let
           bs = collectLocalBinders CollNoDictBinders lbs
           env' = extendMatchEnv env bs
@@ -539,11 +457,7 @@ data SCMap a
   = SCEmpty
   | SCM { scmListComp :: MaybeMap a
         , scmMonadComp :: MaybeMap a
-#if __GLASGOW_HASKELL__ < 900
-        , scmDoExpr :: MaybeMap a
-#else
         , scmDoExpr :: FSEnv a -- We use empty string when modulename is Nothing
-#endif
         -- TODO: the rest
         }
   deriving (Functor)
@@ -552,15 +466,7 @@ emptySCMapWrapper :: SCMap a
 emptySCMapWrapper = SCM mEmpty mEmpty mEmpty
 
 instance PatternMap SCMap where
-#if __GLASGOW_HASKELL__ < 900
-  type Key SCMap = HsStmtContext Name -- see comment on HsDo in GHC
-#elif __GLASGOW_HASKELL__ < 902
-  type Key SCMap = HsStmtContext GhcRn
-#elif __GLASGOW_HASKELL__ < 904
-  type Key SCMap = HsStmtContext (HsDoRn GhcPs)
-#else
   type Key SCMap = HsDoFlavour
-#endif
 
   mEmpty :: SCMap a
   mEmpty = SCEmpty
@@ -580,18 +486,8 @@ instance PatternMap SCMap where
     where
       go ListComp = m { scmListComp = mAlter env vs () f (scmListComp m) }
       go MonadComp = m { scmMonadComp = mAlter env vs () f (scmMonadComp m) }
-#if __GLASGOW_HASKELL__ < 900
-      go DoExpr = m { scmDoExpr = mAlter env vs () f (scmDoExpr m) }
-#else
       go (DoExpr mname) = m { scmDoExpr = mAlter env vs (maybe "" moduleNameFS mname) f (scmDoExpr m) }
-#endif
       go MDoExpr{} = missingSyntax "MDoExpr"
-#if __GLASGOW_HASKELL__ < 904
-      go ArrowExpr = missingSyntax "ArrowExpr"
-      go (PatGuard _) = missingSyntax "PatGuard"
-      go (ParStmtCtxt _) = missingSyntax "ParStmtCtxt"
-      go (TransStmtCtxt _) = missingSyntax "TransStmtCtxt"
-#endif
       go GhciStmtCtxt = missingSyntax "GhciStmtCtxt"
 
   mMatch :: MatchEnv -> Key SCMap -> (Substitution, SCMap a) -> [(Substitution, a)]
@@ -600,11 +496,7 @@ instance PatternMap SCMap where
     where
       go ListComp = mapFor scmListComp >=> mMatch env ()
       go MonadComp = mapFor scmMonadComp >=> mMatch env ()
-#if __GLASGOW_HASKELL__ < 900
-      go DoExpr = mapFor scmDoExpr >=> mMatch env ()
-#else
       go (DoExpr mname) = mapFor scmDoExpr >=> mMatch env (maybe "" moduleNameFS mname)
-#endif
       go _ = const [] -- TODO
 
 ------------------------------------------------------------------------
@@ -677,15 +569,7 @@ emptyCDMapWrapper :: CDMap a
 emptyCDMapWrapper = CDMap mEmpty mEmpty
 
 instance PatternMap CDMap where
-#if __GLASGOW_HASKELL__ < 810
-  type Key CDMap = HsConDetails (LPat GhcPs) (HsRecFields GhcPs (LPat GhcPs))
-#elif __GLASGOW_HASKELL__ < 906
-  -- We must manually expand 'LPat' to avoid UndecidableInstances in GHC 8.10+
-  type Key CDMap = HsConDetails (HsPatSigType GhcPs) (LocatedA (Pat GhcPs)) (HsRecFields GhcPs (LocatedA (Pat GhcPs)))
-  -- type HsConPatDetails p = HsConDetails (HsPatSigType (NoGhcTc p)) (LPat p) (HsRecFields p (LPat p))
-#else
   type Key CDMap = HsConDetails (HsConPatTyArg GhcPs) (LocatedA (Pat GhcPs)) (HsRecFields GhcPs (LocatedA (Pat GhcPs)))
-#endif
 
   mEmpty :: CDMap a
   mEmpty = CDEmpty
@@ -738,12 +622,8 @@ emptyPatMapWrapper :: PatMap a
 emptyPatMapWrapper = PatMap mEmpty mEmpty mEmpty mEmpty mEmpty mEmpty
 
 instance PatternMap PatMap where
-#if __GLASGOW_HASKELL__ < 810
-  type Key PatMap = LPat GhcPs
-#else
   -- We must manually expand 'LPat' to avoid UndecidableInstances in GHC 8.10+
   type Key PatMap = LocatedA (Pat GhcPs)
-#endif
 
   mEmpty :: PatMap a
   mEmpty = PatEmpty
@@ -772,25 +652,14 @@ instance PatternMap PatMap where
       go AsPat{} = missingSyntax "AsPat"
       go BangPat{} = missingSyntax "BangPat"
       go ListPat{} = missingSyntax "ListPat"
-#if __GLASGOW_HASKELL__ < 900
-      go XPat{} = missingSyntax "XPat"
-      go CoPat{} = missingSyntax "CoPat"
-      go ConPatOut{} = missingSyntax "ConPatOut"
-      go (ConPatIn c d) =
-#else
       go (ConPat _ c d) =
-#endif
         m { pmConPatIn = mAlter env vs (rdrFS (unLoc c)) (toA (mAlter env vs d f)) (pmConPatIn m) }
       go ViewPat{} = missingSyntax "ViewPat"
       go SplicePat{} = missingSyntax "SplicePat"
       go LitPat{} = missingSyntax "LitPat"
       go NPat{} = missingSyntax "NPat"
       go NPlusKPat{} = missingSyntax "NPlusKPat"
-#if __GLASGOW_HASKELL__ < 904
-      go (ParPat _ p) = m { pmParPat = mAlter env vs p f (pmParPat m) }
-#else
       go (ParPat _ _ p _) = m { pmParPat = mAlter env vs p f (pmParPat m) }
-#endif
       go (TuplePat _ ps b) =
         m { pmTuplePat = mAlter env vs b (toA (mAlter env vs ps f)) (pmTuplePat m) }
       go SigPat{} = missingSyntax "SigPat"
@@ -805,18 +674,10 @@ instance PatternMap PatMap where
       hss lp = extendResult (pmHole m) (HolePat $ mePruneA env lp) hs
 
       go (WildPat _) = mapFor pmWild >=> mMatch env ()
-#if __GLASGOW_HASKELL__ < 904
-      go (ParPat _ p) = mapFor pmParPat >=> mMatch env p
-#else
       go (ParPat _ _ p _) = mapFor pmParPat >=> mMatch env p
-#endif
       go (TuplePat _ ps b) = mapFor pmTuplePat >=> mMatch env b >=> mMatch env ps
       go (VarPat _ _) = mapFor pmVar >=> mMatch env ()
-#if __GLASGOW_HASKELL__ < 900
-      go (ConPatIn c d) =
-#else
       go (ConPat _ c d) =
-#endif
         mapFor pmConPatIn >=> mMatch env (rdrFS (unLoc c)) >=> mMatch env d
       go _ = const [] -- TODO
 
@@ -866,9 +727,6 @@ instance PatternMap GRHSMap where
   mUnion (GRHSMap m1) (GRHSMap m2) = GRHSMap (mUnion m1 m2)
 
   mAlter :: AlphaEnv -> Quantifiers -> Key GRHSMap -> A a -> GRHSMap a -> GRHSMap a
-#if __GLASGOW_HASKELL__ < 900
-  mAlter _ _ XGRHS{} _ _ = missingSyntax "XGRHS"
-#endif
   mAlter env vs (GRHS _ gs b) f (GRHSMap m) =
     let bs = collectLStmtsBinders CollNoDictBinders gs
         env' = foldr extendAlphaEnvInternal env bs
@@ -876,9 +734,6 @@ instance PatternMap GRHSMap where
     in GRHSMap (mAlter env vs gs (toA (mAlter env' vs' b f)) m)
 
   mMatch :: MatchEnv -> Key GRHSMap -> (Substitution, GRHSMap a) -> [(Substitution, a)]
-#if __GLASGOW_HASKELL__ < 900
-  mMatch _ XGRHS{} = const []
-#endif
   mMatch env (GRHS _ gs b) =
     mapFor unGRHSMap >=> mMatch env gs >=> mMatch env' b
     where
@@ -970,9 +825,6 @@ instance PatternMap LBMap where
   mAlter env vs lbs f m@LB{}  = go lbs
     where
       go (EmptyLocalBinds _) = m { lbEmpty = mAlter env vs () f (lbEmpty m) }
-#if __GLASGOW_HASKELL__ < 900
-      go XHsLocalBindsLR{} = missingSyntax "XHsLocalBindsLR"
-#endif
       go (HsValBinds _ vbs) =
         let
           bs = collectHsValBinders CollNoDictBinders vbs
@@ -1034,33 +886,19 @@ instance PatternMap BMap where
   mAlter env vs b f BMEmpty = mAlter env vs b f emptyBMapWrapper
   mAlter env vs b f m@BM{}  = go b
     where -- see Note [Bind env]
-#if __GLASGOW_HASKELL__ < 900
-      go XHsBindsLR{} = missingSyntax "XHsBindsLR"
-      go (FunBind _ _ mg _ _) = m { bmFunBind = mAlter env vs mg f (bmFunBind m) }
-      go (VarBind _ _ e _) = m { bmVarBind = mAlter env vs e f (bmVarBind m) }
-#else
       go (FunBind{fun_matches = mg}) = m { bmFunBind = mAlter env vs mg f (bmFunBind m) }
       go (VarBind _ _ e) = m { bmVarBind = mAlter env vs e f (bmVarBind m) }
-#endif
       go (PatBind{pat_lhs=lhs, pat_rhs=rhs}) =
         m { bmPatBind = mAlter env vs lhs
               (toA $ mAlter env vs rhs f) (bmPatBind m) }
-#if __GLASGOW_HASKELL__ < 904
-      go AbsBinds{} = missingSyntax "AbsBinds"
-#endif
       go PatSynBind{} = missingSyntax "PatSynBind"
 
   mMatch :: MatchEnv -> Key BMap -> (Substitution, BMap a) -> [(Substitution, a)]
   mMatch _   _ (_,BMEmpty) = []
   mMatch env b (hs,m@BM{}) = go b (hs,m)
     where
-#if __GLASGOW_HASKELL__ < 900
-      go (FunBind _ _ mg _ _) = mapFor bmFunBind >=> mMatch env mg
-      go (VarBind _ _ e _) = mapFor bmVarBind >=> mMatch env e
-#else
       go (FunBind{fun_matches = mg}) = mapFor bmFunBind >=> mMatch env mg
       go (VarBind _ _ e) = mapFor bmVarBind >=> mMatch env e
-#endif
       go (PatBind{pat_lhs=lhs, pat_rhs=rhs})
         = mapFor bmPatBind >=> mMatch env lhs >=> mMatch env rhs
       go _ = const [] -- TODO
@@ -1100,12 +938,7 @@ instance PatternMap SMap where
     where
       go (BodyStmt _ e _ _) = m { smBodyStmt = mAlter env vs e f (smBodyStmt m) }
       go (LastStmt _ e _ _)   = m { smLastStmt = mAlter env vs e f (smLastStmt m) }
-#if __GLASGOW_HASKELL__ < 900
-      go XStmtLR{} = missingSyntax "XStmtLR"
-      go (BindStmt _ p e _ _) =
-#else
       go (BindStmt _ p e) =
-#endif
         let bs = collectPatBinders CollNoDictBinders p
             env' = foldr extendAlphaEnvInternal env bs
             vs' = vs `exceptQ` bs
@@ -1123,11 +956,7 @@ instance PatternMap SMap where
     where
       go (BodyStmt _ e _ _) = mapFor smBodyStmt >=> mMatch env e
       go (LastStmt _ e _ _) = mapFor smLastStmt >=> mMatch env e
-#if __GLASGOW_HASKELL__ < 900
-      go (BindStmt _ p e _ _) =
-#else
       go (BindStmt _ p e) =
-#endif
         let bs = collectPatBinders CollNoDictBinders p
             env' = extendMatchEnv env bs
         in mapFor smBindStmt >=> mMatch env p >=> mMatch env' e
@@ -1140,11 +969,7 @@ data TyMap a
   | TM { tyHole    :: Map RdrName a -- See Note [Holes]
        , tyHsTyVar :: VMap a
        , tyHsAppTy :: TyMap (TyMap a)
-#if __GLASGOW_HASKELL__ < 810
-       , tyHsForAllTy :: ForAllTyMap a -- See Note [Telescope]
-#else
        , tyHsForAllTy :: ForallVisMap (ForAllTyMap a) -- See Note [Telescope]
-#endif
        , tyHsFunTy :: TyMap (TyMap a)
        , tyHsListTy :: TyMap a
        , tyHsParTy :: TyMap a
@@ -1198,28 +1023,13 @@ instance PatternMap TyMap where
       go HsBangTy{} = missingSyntax "HsBangTy"
       go HsRecTy{} = missingSyntax "HsRecTy"
       go (HsAppTy _ ty1 ty2) = m { tyHsAppTy = mAlter env vs ty1 (toA (mAlter env vs ty2 f)) (tyHsAppTy m) }
-#if __GLASGOW_HASKELL__ < 810
-      go (HsForAllTy _ bndrs ty') = m { tyHsForAllTy = mAlter env vs (map extractBinderInfo bndrs, ty') f (tyHsForAllTy m) }
-#elif __GLASGOW_HASKELL__ < 900
-      go (HsForAllTy _ vis bndrs ty') =
-        m { tyHsForAllTy = mAlter env vs (vis == ForallVis) (toA (mAlter env vs (map extractBinderInfo bndrs, ty') f)) (tyHsForAllTy m) }
-#else
       go (HsForAllTy _ vis ty') | (isVisible, bndrs) <- splitVisBinders vis =
         m { tyHsForAllTy = mAlter env vs isVisible (toA (mAlter env vs (bndrs, ty') f)) (tyHsForAllTy m) }
-#endif
-#if __GLASGOW_HASKELL__ < 900
-      go (HsFunTy _ ty1 ty2) = m { tyHsFunTy = mAlter env vs ty1 (toA (mAlter env vs ty2 f)) (tyHsFunTy m) }
-#else
       go (HsFunTy _ _ ty1 ty2) = m { tyHsFunTy = mAlter env vs ty1 (toA (mAlter env vs ty2 f)) (tyHsFunTy m) }
-#endif
       go (HsListTy _ ty') = m { tyHsListTy = mAlter env vs ty' f (tyHsListTy m) }
       go (HsParTy _ ty') = m { tyHsParTy = mAlter env vs ty' f (tyHsParTy m) }
       go (HsQualTy _ cons ty') =
-#if __GLASGOW_HASKELL__ < 904
-        m { tyHsQualTy = mAlter env vs ty' (toA (mAlter env vs (fromMaybeContext cons) f)) (tyHsQualTy m) }
-#else
         m { tyHsQualTy = mAlter env vs ty' (toA (mAlter env vs (fromMaybeContext (Just cons)) f)) (tyHsQualTy m) }
-#endif
       go HsStarTy{} = missingSyntax "HsStarTy"
       go (HsSumTy _ tys) = m { tyHsSumTy = mAlter env vs tys f (tyHsSumTy m) }
       go (HsTupleTy _ ts tys) =
@@ -1239,40 +1049,17 @@ instance PatternMap TyMap where
       hss = extendResult (tyHole m) (HoleType $ mePruneA env ty) hs
 
       go (HsAppTy _ ty1 ty2) = mapFor tyHsAppTy >=> mMatch env ty1 >=> mMatch env ty2
-#if __GLASGOW_HASKELL__ < 810
-      go (HsForAllTy _ bndrs ty') = mapFor tyHsForAllTy >=> mMatch env (map extractBinderInfo bndrs, ty')
-#elif __GLASGOW_HASKELL__ < 900
-      go (HsForAllTy _ vis bndrs ty') =
-        mapFor tyHsForAllTy >=> mMatch env (vis == ForallVis) >=> mMatch env (map extractBinderInfo bndrs, ty')
-#else
       go (HsForAllTy _ telescope ty') | (isVisible, bndrs) <- splitVisBinders telescope =
         mapFor tyHsForAllTy >=> mMatch env isVisible >=> mMatch env (bndrs, ty')
-#endif
-#if __GLASGOW_HASKELL__ < 900
-      go (HsFunTy _ ty1 ty2) = mapFor tyHsFunTy >=> mMatch env ty1 >=> mMatch env ty2
-#else
       go (HsFunTy _ _ ty1 ty2) = mapFor tyHsFunTy >=> mMatch env ty1 >=> mMatch env ty2
-#endif
       go (HsListTy _ ty') = mapFor tyHsListTy >=> mMatch env ty'
       go (HsParTy _ ty') = mapFor tyHsParTy >=> mMatch env ty'
-#if __GLASGOW_HASKELL__ < 904
-      go (HsQualTy _ cons ty') = mapFor tyHsQualTy >=> mMatch env ty' >=> mMatch env (fromMaybeContext cons)
-#else
       go (HsQualTy _ cons ty') = mapFor tyHsQualTy >=> mMatch env ty' >=> mMatch env (fromMaybeContext (Just cons))
-#endif
       go (HsSumTy _ tys) = mapFor tyHsSumTy >=> mMatch env tys
       go (HsTupleTy _ ts tys) = mapFor tyHsTupleTy >=> mMatch env ts >=> mMatch env tys
       go (HsTyVar _ _ v) = mapFor tyHsTyVar >=> mMatch env (unLoc v)
       go _                  = const [] -- TODO
 
-#if __GLASGOW_HASKELL__ < 900
-extractBinderInfo :: LHsTyVarBndr GhcPs -> (RdrName, Maybe (LHsKind GhcPs))
-extractBinderInfo = go . unLoc
-  where
-    go (UserTyVar _ v) = (unLoc v, Nothing)
-    go (KindedTyVar _ v k) = (unLoc v, Just k)
-    go XTyVarBndr{} = missingSyntax "XTyVarBndr"
-#else
 splitVisBinders :: HsForAllTelescope GhcPs -> (Bool, [(RdrName, Maybe (LHsKind GhcPs))])
 splitVisBinders HsForAllVis{..} = (True, map extractBinderInfo hsf_vis_bndrs)
 splitVisBinders HsForAllInvis{..} = (False, map extractBinderInfo hsf_invis_bndrs)
@@ -1283,7 +1070,6 @@ extractBinderInfo = go . unLoc
     go (UserTyVar _ _ v) = (unLoc v, Nothing)
     go (KindedTyVar _ _ v k) = (unLoc v, Just k)
     go XTyVarBndr{} = missingSyntax "XTyVarBndr"
-#endif
 
 ------------------------------------------------------------------------
 
@@ -1291,11 +1077,7 @@ newtype RFMap a = RFM { rfmField :: VMap (EMap a) }
   deriving (Functor)
 
 instance PatternMap RFMap where
-#if __GLASGOW_HASKELL__ < 904
-  type Key RFMap = LocatedA (HsRecField' RdrName (LocatedA (HsExpr GhcPs)))
-#else
   type Key RFMap = LocatedA (HsRecField GhcPs (LocatedA (HsExpr GhcPs)))
-#endif
 
   mEmpty :: RFMap a
   mEmpty = RFM mEmpty
@@ -1306,24 +1088,14 @@ instance PatternMap RFMap where
   mAlter :: AlphaEnv -> Quantifiers -> Key RFMap -> A a -> RFMap a -> RFMap a
   mAlter env vs lf f m = go (unLoc lf)
     where
-#if __GLASGOW_HASKELL__ < 904
-      go (HsRecField _ lbl arg _pun) =
-        m { rfmField = mAlter env vs (unLoc lbl) (toA (mAlter env vs arg f)) (rfmField m) }
-#else
       go (HsFieldBind _ lbl arg _pun) =
         m { rfmField = mAlter env vs (unLoc (foLabel (unLoc lbl))) (toA (mAlter env vs arg f)) (rfmField m) }
-#endif
 
   mMatch :: MatchEnv -> Key RFMap -> (Substitution, RFMap a) -> [(Substitution, a)]
   mMatch env lf (hs,m) = go (unLoc lf) (hs,m)
     where
-#if __GLASGOW_HASKELL__ < 904
-      go (HsRecField _ lbl arg _pun) =
-        mapFor rfmField >=> mMatch env (unLoc lbl) >=> mMatch env arg
-#else
       go (HsFieldBind _ lbl arg _pun) =
         mapFor rfmField >=> mMatch env (unLoc (foLabel (unLoc lbl))) >=> mMatch env arg
-#endif
 
 -- Helper class to collapse the complex encoding of record fields into RdrNames.
 -- (The complexity is to support punning/duplicate/overlapping fields, which
@@ -1338,52 +1110,23 @@ instance RecordFieldToRdrName (AmbiguousFieldOcc GhcPs) where
   recordFieldToRdrName = ambiguousFieldOccRdrName
 #endif
 
-#if __GLASGOW_HASKELL__ < 904
-instance RecordFieldToRdrName (FieldOcc p) where
-  recordFieldToRdrName = unLoc . rdrNameFieldOcc
-#else
 instance RecordFieldToRdrName (FieldOcc GhcPs) where
   recordFieldToRdrName = unLoc . foLabel
-#endif
 
 instance RecordFieldToRdrName (FieldLabelStrings GhcPs) where
-  recordFieldToRdrName = error "TBD"
+  recordFieldToRdrName = 
+    error "recordFieldToRdrName FieldLabelStrings: unimplemented"
 
-#if __GLASGOW_HASKELL__ < 904
--- Either [LHsRecUpdField GhcPs] [LHsRecUpdProj GhcPs]
-fieldsToRdrNamesUpd
-  :: Either [LHsRecUpdField GhcPs] [LHsRecUpdProj GhcPs]
-  -> [LHsRecField' GhcPs RdrName (LHsExpr GhcPs)]
-fieldsToRdrNamesUpd (Left fs) = map go fs
-  where
-    go (L l (HsRecField a (L l2 f) arg pun)) =
-      L l (HsRecField a (L l2 (recordFieldToRdrName f)) arg pun)
-fieldsToRdrNamesUpd (Right fs) = map go fs
-  where
-    go (L l (HsRecField a (L l2 f) arg pun)) =
-      L l (HsRecField a (L l2 (recordFieldToRdrName f)) arg pun)
-#elif __GLASGOW_HASKELL__ < 908
+#if __GLASGOW_HASKELL__ < 908
 fieldsToRdrNamesUpd :: Either [LHsRecUpdField GhcPs] [LHsRecUpdProj GhcPs]
   -> [LHsRecField GhcPs (LHsExpr GhcPs)]
-fieldsToRdrNamesUpd (Left xs) = map go xs
-  where
-    go (L l (HsFieldBind a (L l2 f) arg pun)) =
-      let lrdrName = case f of
-            Unambiguous _ n -> n
-            Ambiguous _ n -> n
-            XAmbiguousFieldOcc{} -> error "XAmbiguousFieldOcc"
-          f' = FieldOcc NoExtField lrdrName
-       in L l (HsFieldBind a (L l2 f') arg pun)
-fieldsToRdrNamesUpd (Right xs) = map go xs
-  where
-    go (L l (HsFieldBind a (L l2 _f) arg pun)) =
-      let lrdrName = error "TBD" -- same as GHC 9.2
-          f' = FieldOcc NoExtField lrdrName
-       in L l (HsFieldBind a (L l2 f') arg pun)
+fieldsToRdrNamesUpd (Left xs) = 
 #else
 fieldsToRdrNamesUpd :: LHsRecUpdFields GhcPs
   -> [LHsRecField GhcPs (LHsExpr GhcPs)]
-fieldsToRdrNamesUpd (RegularRecUpdFields _ xs) = map go xs
+fieldsToRdrNamesUpd (RegularRecUpdFields _ xs) = 
+#endif
+  map go xs
   where
     go (L l (HsFieldBind a (L l2 f) arg pun)) =
       let lrdrName = case f of
@@ -1392,24 +1135,17 @@ fieldsToRdrNamesUpd (RegularRecUpdFields _ xs) = map go xs
             XAmbiguousFieldOcc{} -> error "XAmbiguousFieldOcc"
           f' = FieldOcc NoExtField lrdrName
        in L l (HsFieldBind a (L l2 f') arg pun)
-fieldsToRdrNamesUpd (OverloadedRecUpdFields _ xs) = map go xs
+#if __GLASGOW_HASKELL__ < 908
+fieldsToRdrNamesUpd (Right xs) = 
+#else
+fieldsToRdrNamesUpd (OverloadedRecUpdFields _ xs) = 
+#endif
+  map go xs
   where
     go (L l (HsFieldBind a (L l2 _f) arg pun)) =
       let lrdrName = error "TBD" -- same as GHC 9.2
           f' = FieldOcc NoExtField lrdrName
        in L l (HsFieldBind a (L l2 f') arg pun)
-#endif
-
-#if __GLASGOW_HASKELL__ < 904
-fieldsToRdrNames
-  :: RecordFieldToRdrName f
-  => [LHsRecField' GhcPs f arg]
-  -> [LHsRecField' GhcPs RdrName arg]
-fieldsToRdrNames = map go
-  where
-    go (L l (HsRecField a (L l2 f) arg pun)) =
-      L l (HsRecField a (L l2 (recordFieldToRdrName f)) arg pun)
-#endif
 
 ------------------------------------------------------------------------
 
@@ -1497,8 +1233,6 @@ instance PatternMap ForAllTyMap where
     where
       env' = extendMatchEnv env [v]
 
-#if __GLASGOW_HASKELL__ < 810
-#else
 newtype ForallVisMap a = ForallVisMap { favBoolMap :: BoolMap a }
   deriving (Functor)
 
@@ -1516,4 +1250,3 @@ instance PatternMap ForallVisMap where
 
   mMatch :: MatchEnv -> Key ForallVisMap -> (Substitution, ForallVisMap a) -> [(Substitution, a)]
   mMatch env b = mapFor favBoolMap >=> mMatch env b
-#endif

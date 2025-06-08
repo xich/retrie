@@ -4,7 +4,6 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -61,11 +60,7 @@ updateContext c i =
     updExp (OpApp _ _ op _)
       | Fixity source prec dir <- lookupOp op $ ctxtFixityEnv c =
           withPrec c source prec dir i
-#if __GLASGOW_HASKELL__ < 904
-    updExp (HsLet _ lbs _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
-#else
     updExp (HsLet _ _ lbs _ _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
-#endif
     updExp _ = neverParen
 
     updType :: HsType GhcPs -> Context
@@ -84,9 +79,6 @@ updateContext c i =
     updGRHSs = addInScope neverParen . collectLocalBinders CollNoDictBinders . grhssLocalBinds
 
     updGRHS :: GRHS GhcPs (LHsExpr GhcPs) -> Context
-#if __GLASGOW_HASKELL__ < 900
-    updGRHS XGRHS{} = neverParen
-#endif
     updGRHS (GRHS _ gs _)
         -- binders are in scope over the body (right child) only
       | i > firstChild = addInScope neverParen bs

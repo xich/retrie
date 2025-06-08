@@ -4,7 +4,6 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 module Annotated (annotatedTest) where
@@ -204,11 +203,7 @@ assertLocsReplaced = everything (>>) assertReplaced
 -- assertExactPrintAnns :: Anns -> Anns -> IO ()
 -- assertExactPrintAnns annsPreGraft annsPostGraft =
 --   forM_ newKeys $ \(AnnKey ss _) ->
--- #if __GLASGOW_HASKELL__ < 900
---     assertGoodSrcSpan ss
--- #else
 --     assertGoodRealSrcSpan ss
--- #endif
 --   where
 --     newKeys :: S.Set AnnKey
 --     newKeys = M.keysSet annsPostGraft `S.difference` M.keysSet annsPreGraft
