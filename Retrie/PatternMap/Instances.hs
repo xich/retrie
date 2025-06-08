@@ -181,6 +181,15 @@ instance PatternMap LMap where
       go HsRat{} = missingSyntax "HsRat"
       go HsFloatPrim{} = missingSyntax "HsFloatPrim"
       go HsDoublePrim{} = missingSyntax "HsDoublePrim"
+#if __GLASGOW_HASKELL__ < 908
+#else
+      go (HsInt8Prim _ _) = missingSyntax "HsInt8Prim"
+      go (HsInt16Prim _ _) = missingSyntax "HsInt16Prim"
+      go (HsInt32Prim _ _) = missingSyntax "HsInt32Prim"
+      go (HsWord8Prim _ _) = missingSyntax "HsWord8Prim"
+      go (HsWord16Prim _ _) = missingSyntax "HsWord16Prim"
+      go (HsWord32Prim _ _) = missingSyntax "HsWord32Prim"
+#endif
 
   mMatch :: MatchEnv -> Key LMap -> (Substitution, LMap a) -> [(Substitution, a)]
   mMatch _   _   (_,LMEmpty) = []
@@ -384,6 +393,13 @@ instance PatternMap EMap where
       go HsOverLabel{} = missingSyntax "HsOverLabel"
       go HsAppType{} = missingSyntax "HsAppType"
       go ExplicitSum{} = missingSyntax "ExplicitSum"
+      go (HsRecSel _ _) = missingSyntax "HsRecSel"
+      go (HsGetField _ _ _) = missingSyntax "HsGetField"
+      go (HsProjection _ _) = missingSyntax "HsProjection"
+      go (HsTypedSplice _ _) = missingSyntax "HsTypedSplice"
+      go (HsUntypedSplice _ _) = missingSyntax "HsUntypedSplice"
+      go (HsProc _ _ _) = missingSyntax "HsProc"
+      go (HsStatic _ _) = missingSyntax "HsStatic"
 
   mMatch :: MatchEnv -> Key EMap -> (Substitution, EMap a) -> [(Substitution, a)]
   mMatch _   _ (_,EMEmpty) = []
@@ -586,7 +602,8 @@ instance PatternMap CDMap where
   mAlter env vs d f CDEmpty   = mAlter env vs d f emptyCDMapWrapper
   mAlter env vs d f m@CDMap{} = go d
     where
-      go (PrefixCon tyargs ps) = m { cdPrefixCon = mAlter env vs ps f (cdPrefixCon m) }
+      -- TODO(xich): properly handle tyargs here!
+      go (PrefixCon _tyargs ps) = m { cdPrefixCon = mAlter env vs ps f (cdPrefixCon m) }
       go (RecCon _) = missingSyntax "RecCon"
       go (InfixCon p1 p2) = m { cdInfixCon = mAlter env vs p1
                                               (toA (mAlter env vs p2 f))
@@ -596,7 +613,8 @@ instance PatternMap CDMap where
   mMatch _   _ (_ ,CDEmpty)   = []
   mMatch env d (hs,m@CDMap{}) = go d (hs,m)
     where
-      go (PrefixCon tyargs ps) = mapFor cdPrefixCon >=> mMatch env ps
+      -- TODO(xich): properly handle tyargs here!
+      go (PrefixCon _tyargs ps) = mapFor cdPrefixCon >=> mMatch env ps
       go (InfixCon p1 p2) = mapFor cdInfixCon >=> mMatch env p1 >=> mMatch env p2
       go _ = const [] -- TODO
 

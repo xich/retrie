@@ -76,7 +76,7 @@ library
     Retrie.Types,
     Retrie.Universe,
     Retrie.Util
-  GHC-Options: -Wall
+  GHC-Options: -Wall -Werror
   build-depends:
     ansi-terminal >= 0.10.3 && < 1.1,
     async >= 2.2.2 && < 2.3,
@@ -112,7 +112,7 @@ executable retrie
     Main.hs
   hs-source-dirs: bin hse
   other-modules: Fixity
-  GHC-Options: -Wall
+  GHC-Options: -Wall -Werror
   build-depends:
     retrie,
     base >= 4.11 && < 4.20,
@@ -129,7 +129,7 @@ executable demo-retrie
     Main.hs
   hs-source-dirs: demo hse
   other-modules: Fixity
-  GHC-Options: -Wall
+  GHC-Options: -Wall -Werror
   build-depends:
     retrie,
     base >= 4.11 && < 4.20,
@@ -156,7 +156,7 @@ test-suite test
     Util
   hs-source-dirs: tests hse
   default-language: Haskell2010
-  GHC-Options: -Wall
+  GHC-Options: -Wall -Werror
   build-depends:
     retrie,
     HUnit,

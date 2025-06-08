@@ -26,11 +26,10 @@ emptyFVs :: FreeVars
 emptyFVs = FreeVars emptyUniqSet
 
 instance Semigroup FreeVars where
-  (<>) = mappend
+  (FreeVars s1) <> (FreeVars s2) = FreeVars $ s1 <> s2
 
 instance Monoid FreeVars where
   mempty = emptyFVs
-  mappend (FreeVars s1) (FreeVars s2) = FreeVars $ s1 <> s2
 
 instance Show FreeVars where
   show (FreeVars m) = show (nonDetEltsUniqSet m)

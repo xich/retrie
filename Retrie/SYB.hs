@@ -20,7 +20,7 @@ module Retrie.SYB
   ) where
 
 import Control.Monad
-import Data.Generics hiding (Fixity(..))
+import Data.Generics hiding (Fixity(..), ext2)
 
 -- | Monadic rewrite with context
 type GenericMC m c = forall a. Data a => c -> a -> m a

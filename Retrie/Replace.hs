@@ -26,7 +26,6 @@ import Retrie.GHC
 import Retrie.Subst
 import Retrie.Types
 import Retrie.Universe
-import Retrie.Util
 
 ------------------------------------------------------------------------
 
@@ -127,14 +126,13 @@ data Replacement = Replacement
 data Change = NoChange | Change [Replacement] [AnnotatedImports]
 
 instance Semigroup Change where
-  (<>) = mappend
+  NoChange         <> other            = other
+  other            <> NoChange         = other
+  (Change rs1 is1) <> (Change rs2 is2) =
+    Change (rs1 <> rs2) (is1 <> is2)
 
 instance Monoid Change where
   mempty = NoChange
-  mappend NoChange     other        = other
-  mappend other        NoChange     = other
-  mappend (Change rs1 is1) (Change rs2 is2) =
-    Change (rs1 <> rs2) (is1 <> is2)
 
 -- The location of 'e' accurately points to the first non-space character
 -- of 'e', but when we exactprint 'e', we might get some leading spaces (if

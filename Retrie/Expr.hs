@@ -38,31 +38,17 @@ module Retrie.Expr
 
 import Control.Monad
 import Control.Monad.State.Lazy
-import Data.Functor.Identity
--- import qualified Data.Map as M
-import Data.Maybe
--- import Data.Void
 
-import Retrie.AlphaEnv
 import Retrie.ExactPrint
 import Retrie.Fixity
 import Retrie.GHC
 import Retrie.SYB
 import Retrie.Types
-import Retrie.Util
 
 -------------------------------------------------------------------------------
 
 mkLocatedHsVar :: Monad m => LocatedN RdrName -> TransformT m (LHsExpr GhcPs)
-mkLocatedHsVar ln@(L l n) = do
-  -- This special casing for [] is gross, but this is apparently how the
-  -- annotations work.
-  -- let anns =
-  --       case occNameString (occName (unLoc v)) of
-  --         "[]" -> [(G AnnOpenS, DP (0,0)), (G AnnCloseS, DP (0,0))]
-  --         _    -> [(G AnnVal, DP (0,0))]
-  -- r <- setAnnsFor v anns
-  -- return (L (moveAnchor l)  (HsVar noExtField n))
+mkLocatedHsVar (L l n) = do
   mkLocA (SameLine 0)  (HsVar noExtField (L (setMoveAnchor (SameLine 0) l) n))
 
 -- TODO: move to ghc-exactprint
@@ -128,9 +114,9 @@ mkLams vs e = do
     ga = GrhsAnn Nothing (AddEpAnn AnnRarrow (EpaDelta (SameLine 1) []))
     ang = EpAnn ancg ga emptyComments
     anm = EpAnn ancm [(AddEpAnn AnnLam (EpaDelta (SameLine 0) []))] emptyComments
-    L l (Match x ctxt pats (GRHSs cs grhs binds)) = mkMatch LambdaExpr vs e emptyLocalBinds
+    L l (Match _ ctxt pats (GRHSs cs grhs binds)) = mkMatch LambdaExpr vs e emptyLocalBinds
     grhs' = case grhs of
-      [L lg (GRHS an guards rhs)] -> [L lg (GRHS ang guards rhs)]
+      [L lg (GRHS _ guards rhs)] -> [L lg (GRHS ang guards rhs)]
       _ -> fail "mkLams: lambda expression can only have a single grhs!"
   matches <- mkLocA (SameLine 0) [L l (Match anm ctxt pats (GRHSs cs grhs' binds))]
   let
@@ -168,7 +154,7 @@ mkTyVar :: Monad m => LocatedN RdrName -> TransformT m (LHsType GhcPs)
 mkTyVar nm = do
   tv <- mkLocA (SameLine 1) (HsTyVar noAnn NotPromoted nm)
   -- _ <- setAnnsFor nm [(G AnnVal, DP (0,0))]
-  (tv', nm') <- swapEntryDPT tv nm
+  (tv', _) <- swapEntryDPT tv nm
   return tv'
 
 mkVarPat :: Monad m => LocatedN RdrName -> TransformT m (LPat GhcPs)
@@ -212,18 +198,11 @@ newWildVar = do
 wildSupply :: [RdrName] -> [RdrName]
 wildSupply used = wildSupplyP (`notElem` used)
 
-wildSupplyAlphaEnv :: AlphaEnv -> [RdrName]
-wildSupplyAlphaEnv env = wildSupplyP (\ nm -> isNothing (lookupAlphaEnv nm env))
-
 wildSupplyP :: (RdrName -> Bool) -> [RdrName]
 wildSupplyP p =
   [ r | i <- [0..]
       , let r = mkVarUnqual (mkFastString ('w' : show (i :: Int)))
       , p r ]
-
--- patToExprA :: AlphaEnv -> AnnotatedPat -> AnnotatedHsExpr
--- patToExprA env pat = runIdentity $ transformA pat $ \ p ->
---   fst <$> runStateT (patToExpr $ cLPat p) (wildSupplyAlphaEnv env, [])
 
 patToExpr :: MonadIO m => LPat GhcPs -> PatQ m (LHsExpr GhcPs)
 patToExpr orig = case dLPat orig of
@@ -285,7 +264,8 @@ conPatHelper con (InfixCon x y) =
                          <*> patToExpr x
                          <*> lift (mkLocatedHsVar con)
                          <*> patToExpr y
-conPatHelper con (PrefixCon tyargs xs) = do
+-- TODO(xich): Properly handle tyargs here!
+conPatHelper con (PrefixCon _tyargs xs) = do
   f <- lift $ mkLocatedHsVar con
   as <- mapM patToExpr xs
   -- lift $ lift $ liftIO $ debugPrint Loud "conPatHelper:f="  [showAst f]
@@ -297,7 +277,6 @@ conPatHelper _ _ = error "conPatHelper RecCon"
 grhsToExpr :: LGRHS GhcPs (LHsExpr GhcPs) -> LHsExpr GhcPs
 grhsToExpr (L _ (GRHS _ [] e)) = e
 grhsToExpr (L _ (GRHS _ (_:_) e)) = e -- not sure about this
-grhsToExpr _ = error "grhsToExpr"
 
 -------------------------------------------------------------------------------
 
@@ -342,14 +321,6 @@ unparen expr = case expr of
 -- | hsExprNeedsParens is not always up-to-date, so this allows us to override
 needsParens :: HsExpr GhcPs -> Bool
 needsParens = hsExprNeedsParens (PprPrec 10)
-
-mkParen :: (Data x, Monad m, Monoid an, Typeable an)
-  => (LocatedAn an x -> x) -> LocatedAn an x -> TransformT m (LocatedAn an x)
-mkParen k e = do
-  pe <- mkLocA (SameLine 1) (k e)
-  -- _ <- setAnnsFor pe [(G AnnOpenP, DP (0,0)), (G AnnCloseP, DP (0,0))]
-  (e0,pe0) <- swapEntryDPT e pe
-  return pe0
 
 mkParen' :: (Data x, Monad m, Monoid an)
          => DeltaPos -> (EpAnn NoEpAnns -> x) -> TransformT m (LocatedAn an x)

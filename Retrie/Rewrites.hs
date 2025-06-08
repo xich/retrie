@@ -17,7 +17,6 @@ module Retrie.Rewrites
 import Control.Exception
 import qualified Data.Map as Map
 import Data.Maybe
-import Data.Data hiding (Fixity)
 import qualified Data.Text as Text
 import Data.Traversable
 import System.FilePath
@@ -25,14 +24,13 @@ import System.FilePath
 import Retrie.CPP
 import Retrie.ExactPrint
 import Retrie.Fixity
-import Retrie.GHC hiding (Pattern)
+import Retrie.GHC
 import Retrie.Rewrites.Function
 import Retrie.Rewrites.Patterns
 import Retrie.Rewrites.Rules
 import Retrie.Rewrites.Types
 import Retrie.Types
 import Retrie.Universe
-import Retrie.Util
 
 -- | A qualified name. (e.g. @"Module.Name.functionName"@)
 type QualifiedName = String
@@ -164,10 +162,6 @@ parseAdhocs libdir fixities adhocs = do
       , let nm = "adhoc" ++ show (i::Int)
       ]
 
-
-showCpp :: (Data ast, ExactPrint ast) => CPP (Annotated ast) -> String
-showCpp (NoCPP c) = showAstA c
-showCpp (CPP{}) = "CPP{}"
 
 parseAdhocTypes :: LibDir -> FixityEnv -> [String] -> IO [Rewrite Universe]
 parseAdhocTypes _ _ [] = return []
