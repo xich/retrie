@@ -26,6 +26,18 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
+      - name: Install System Packages (macOS)
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: |
+          brew install mercurial
+
+      - name: Install System Packages (Linux)
+        if: ${{ runner.os == 'Linux' }}
+        shell: bash
+        run: |
+          sudo apt-get install mercurial
+
       - name: Setup GHC
         id: setup
         uses: haskell-actions/setup@v2
@@ -59,9 +71,10 @@ jobs:
         shell: bash
         run: cabal haddock
 
-#      - name: Test
-#        shell: bash
-#        run: cabal test
+      - name: Test
+        shell: bash
+        run: cabal test
+
        # For debugging the workflow interactively
 #      - uses: mxschmitt/action-tmate@v3
 #        with:
