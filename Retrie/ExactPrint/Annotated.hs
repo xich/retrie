@@ -4,12 +4,11 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
+{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE CPP #-}
 module Retrie.ExactPrint.Annotated
   ( -- * Annotated
     Annotated
@@ -62,11 +61,7 @@ type AnnotatedHsExpr = Annotated (LHsExpr GhcPs)
 type AnnotatedHsType = Annotated (LHsType GhcPs)
 type AnnotatedImport = Annotated (LImportDecl GhcPs)
 type AnnotatedImports = Annotated [LImportDecl GhcPs]
-#if __GLASGOW_HASKELL__ >= 906
 type AnnotatedModule = Annotated (Located (HsModule GhcPs))
-#else
-type AnnotatedModule = Annotated (Located HsModule)
-#endif
 type AnnotatedPat = Annotated (LPat GhcPs)
 type AnnotatedStmt = Annotated (LStmt GhcPs (LHsExpr GhcPs))
 

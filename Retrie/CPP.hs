@@ -4,7 +4,6 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 module Retrie.CPP
@@ -28,10 +27,7 @@ import Debug.Trace
 import Retrie.ExactPrint
 import Retrie.GHC
 import Retrie.Replace
-#if __GLASGOW_HASKELL__ < 904
-#else
 import GHC.Types.PkgQual
-#endif
 
 -- Note [CPP]
 -- We can't just run the pre-processor on files and then rewrite them, because
@@ -326,13 +322,8 @@ isPragma = Text.isPrefixOf "{-#"
 insertImports
   :: Monad m
   => [AnnotatedImports]   -- ^ imports and their annotations
-#if __GLASGOW_HASKELL__ < 906
-  -> Located HsModule     -- ^ target module
-  -> TransformT m (Located HsModule)
-#else
   -> Located (HsModule GhcPs)     -- ^ target module
   -> TransformT m (Located (HsModule GhcPs))
-#endif
 insertImports is (L l m) = do
   imps <- graftA $ filterAndFlatten (unLoc <$> hsmodName m) is
   let
@@ -352,25 +343,14 @@ eqImportDecl x y =
   ((==) `on` unLoc . ideclName) x y
   && ((==) `on` ideclQualified) x y
   && ((==) `on` ideclAs) x y
-#if __GLASGOW_HASKELL__ <= 904
-  && ((==) `on` ideclHiding) x y
-#else
   && ((==) `on` ideclImportList) x y
-#endif
-#if __GLASGOW_HASKELL__ < 904
-  && ((==) `on` ideclPkgQual) x y
-#else
   && (eqRawPkgQual `on` ideclPkgQual) x y
-#endif
   && ((==) `on` ideclSource) x y
   && ((==) `on` ideclSafe) x y
   -- intentionally leave out ideclImplicit and ideclSourceSrc
   -- former doesn't matter for this check, latter is prone to whitespace issues
-#if __GLASGOW_HASKELL__ < 904
-#else
   where
     eqRawPkgQual NoRawPkgQual NoRawPkgQual = True
     eqRawPkgQual NoRawPkgQual (RawPkgQual _) = False
     eqRawPkgQual (RawPkgQual _) NoRawPkgQual = False
     eqRawPkgQual (RawPkgQual s) (RawPkgQual s') = s == s'
-#endif

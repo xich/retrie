@@ -145,21 +145,11 @@ mkLams vs e = do
 mkLet :: Monad m => HsLocalBinds GhcPs -> LHsExpr GhcPs -> TransformT m (LHsExpr GhcPs)
 mkLet EmptyLocalBinds{} e = return e
 mkLet lbs e = do
-#if __GLASGOW_HASKELL__ < 904
-  an <- mkEpAnn (DifferentLine 1 5)
-                (AnnsLet {
-                   alLet = EpaDelta (SameLine 0) [],
-                   alIn = EpaDelta (DifferentLine 1 1) []
-                 })
-  le <- mkLocA (SameLine 1) $ HsLet an lbs e
-  return le
-#else
   an <- mkEpAnn (DifferentLine 1 5) NoEpAnns
   let tokLet = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
       tokIn = L (TokenLoc (EpaDelta (DifferentLine 1 1) [])) HsTok
   le <- mkLocA (SameLine 1) $ HsLet an tokLet lbs tokIn e
   return le
-#endif
 
 mkApps :: MonadIO m => LHsExpr GhcPs -> [LHsExpr GhcPs] -> TransformT m (LHsExpr GhcPs)
 mkApps e []     = return e
@@ -247,14 +237,7 @@ patToExpr orig = case dLPat orig of
       w <- newWildVar
       v <- lift $ mkLocA (SameLine 1) w
       lift $ mkLocatedHsVar v
-#if __GLASGOW_HASKELL__ < 900
-    go XPat{} = error "patToExpr XPat"
-    go CoPat{} = error "patToExpr CoPat"
-    go (ConPatIn con ds) = conPatHelper con ds
-    go ConPatOut{} = error "patToExpr ConPatOut" -- only exists post-tc
-#else
     go (ConPat _ con ds) = conPatHelper con ds
-#endif
     go (LazyPat _ pat) = patToExpr pat
     go (BangPat _ pat) = patToExpr pat
     go (ListPat _ ps) = do
@@ -274,17 +257,11 @@ patToExpr orig = case dLPat orig of
       negE <- maybe (return e) (mkLocA (SameLine 0) . NegApp noAnn e) mbNeg
       -- addAllAnnsT llit negE
       return negE
-#if __GLASGOW_HASKELL__ < 904
-    go (ParPat an p') = do
-      p <- patToExpr p'
-      lift $ mkLocA (SameLine 1) (HsPar an p)
-#else
     go (ParPat an _ p' _) = do
       p <- patToExpr p'
       let tokLP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
           tokRP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
       lift $ mkLocA (SameLine 1) (HsPar an tokLP p tokRP)
-#endif
     go SigPat{} = error "patToExpr SigPat"
     go (TuplePat an ps boxity) = do
       es <- forM ps $ \pat -> do
@@ -336,15 +313,10 @@ precedence _        _                = Nothing
 parenify
   :: Monad m => Context -> LHsExpr GhcPs -> TransformT m (LHsExpr GhcPs)
 parenify Context{..} le@(L _ e)
-#if __GLASGOW_HASKELL__ < 904
-  | needed ctxtParentPrec (precedence ctxtFixityEnv e) && needsParens e =
-    mkParen' (getEntryDP le) (\an -> HsPar an (setEntryDP le (SameLine 0)))
-#else
   | needed ctxtParentPrec (precedence ctxtFixityEnv e) && needsParens e = do
     let tokLP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
         tokRP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
      in mkParen' (getEntryDP le) (\an -> HsPar an tokLP (setEntryDP le (SameLine 0)) tokRP)
-#endif
   | otherwise = return le
   where
            {- parent -}               {- child -}
@@ -360,11 +332,7 @@ getUnparened = mkT unparen `extT` unparenT `extT` unparenP
 -- TODO: what about comments?
 unparen :: LHsExpr GhcPs -> LHsExpr GhcPs
 unparen expr = case expr of
-#if __GLASGOW_HASKELL__ < 904
-  L _ (HsPar _ e)
-#else
   L _ (HsPar _ _ e _)
-#endif
     -- see Note [Sections in HsSyn] in GHC.Hs.Expr
     | L _ SectionL{} <- e -> expr
     | L _ SectionR{} <- e -> expr
@@ -383,16 +351,6 @@ mkParen k e = do
   (e0,pe0) <- swapEntryDPT e pe
   return pe0
 
-#if __GLASGOW_HASKELL__ < 904
-mkParen' :: (Data x, Monad m, Monoid an)
-         => DeltaPos -> (EpAnn AnnParen -> x) -> TransformT m (LocatedAn an x)
-mkParen' dp k = do
-  let an = AnnParen AnnParens d0 d0
-  l <- uniqueSrcSpanT
-  let anc = Anchor (realSrcSpan l) (MovedAnchor (SameLine 0))
-  pe <- mkLocA dp (k (EpAnn anc an emptyComments))
-  return pe
-#else
 mkParen' :: (Data x, Monad m, Monoid an)
          => DeltaPos -> (EpAnn NoEpAnns -> x) -> TransformT m (LocatedAn an x)
 mkParen' dp k = do
@@ -410,7 +368,6 @@ mkParenTy dp k = do
   let anc = Anchor (realSrcSpan l) (MovedAnchor (SameLine 0))
   pe <- mkLocA dp (k (EpAnn anc an emptyComments))
   return pe
-#endif
 
 -- This explicitly operates on 'Located (Pat GhcPs)' instead of 'LPat GhcPs'
 -- because it is applied at that type by SYB.
@@ -422,13 +379,9 @@ parenifyP
 parenifyP Context{..} p@(L _ pat)
   | IsLhs <- ctxtParentPrec
   , needed pat =
-#if __GLASGOW_HASKELL__ < 904
-    mkParen' (getEntryDP p) (\an -> ParPat an (setEntryDP p (SameLine 0)))
-#else
     let tokLP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
         tokRP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
      in mkParen' (getEntryDP p) (\an -> ParPat an tokLP (setEntryDP p (SameLine 0)) tokRP)
-#endif
   | otherwise = return p
   where
     needed BangPat{}                          = False
@@ -440,23 +393,14 @@ parenifyP Context{..} p@(L _ pat)
     needed TuplePat{}                         = False
     needed VarPat{}                           = False
     needed WildPat{}                          = False
-#if __GLASGOW_HASKELL__ < 900
-    needed (ConPatIn _ (PrefixCon []))        = False
-    needed ConPatOut{pat_args = PrefixCon []} = False
-#else
     needed (ConPat _ _ (PrefixCon _ []))      = False
-#endif
     needed _                                  = True
 
 parenifyT
   :: Monad m => Context -> LHsType GhcPs -> TransformT m (LHsType GhcPs)
 parenifyT Context{..} lty@(L _ ty)
   | needed ty =
-#if __GLASGOW_HASKELL__ < 904
-      mkParen' (getEntryDP lty) (\an -> HsParTy an (setEntryDP lty (SameLine 0)))
-#else
       mkParenTy (getEntryDP lty) (\an -> HsParTy an (setEntryDP lty (SameLine 0)))
-#endif
   | otherwise = return lty
   where
     needed t = case ctxtParentPrec of
@@ -473,11 +417,7 @@ unparenT (L _ (HsParTy _ ty)) = ty
 unparenT ty = ty
 
 unparenP :: LPat GhcPs -> LPat GhcPs
-#if __GLASGOW_HASKELL__ < 904
-unparenP (L _ (ParPat _ p)) = p
-#else
 unparenP (L _ (ParPat _ _ p _)) = p
-#endif
 unparenP p = p
 
 --------------------------------------------------------------------

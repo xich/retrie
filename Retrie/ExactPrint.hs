@@ -4,7 +4,6 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -217,11 +216,7 @@ fixOneEntryExpr e = return e
 
 fixOneEntryPat :: MonadIO m => LPat GhcPs -> TransformT m (LPat GhcPs)
 fixOneEntryPat pat
-#if __GLASGOW_HASKELL__ < 900
-  | Just p@(L l (ConPatIn a (InfixCon x b))) <- dLPat pat = do
-#else
   | Just p@(L l (ConPat a b (InfixCon x c))) <- dLPat pat = do
-#endif
     (p', x') <- fixOneEntry p (dLPatUnsafe x)
     return (cLPat $ (L (getLoc p') (ConPat a b (InfixCon x' c))))
   | otherwise = return pat
@@ -263,13 +258,7 @@ parseContentNoFixity libdir fp str = join $ Parsers.withDynFlags libdir $ \dflag
   r <- Parsers.parseModuleFromString libdir fp str
   case r of
     Left msg -> do
-#if __GLASGOW_HASKELL__ < 900
-      fail $ show msg
-#elif __GLASGOW_HASKELL__ < 904
-      fail $ show $ bagToList msg
-#else
       fail $ showSDoc dflags $ ppr msg
-#endif
     Right m -> return $ unsafeMkA (makeDeltaAst m) 0
 
 parseContent :: Parsers.LibDir -> FixityEnv -> FilePath -> String -> IO AnnotatedModule
@@ -318,13 +307,7 @@ parseHelper :: (ExactPrint a)
   => Parsers.LibDir -> FilePath -> Parsers.Parser a -> String -> IO (Annotated a)
 parseHelper libdir fp parser str = join $ Parsers.withDynFlags libdir $ \dflags ->
   case parser dflags fp str of
-#if __GLASGOW_HASKELL__ < 900
-    Left (_, msg) -> throwIO $ ErrorCall msg
-#elif __GLASGOW_HASKELL__ < 904
-    Left errBag -> throwIO $ ErrorCall (show $ bagToList errBag)
-#else
     Left msg -> throwIO $ ErrorCall (showSDoc dflags $ ppr msg)
-#endif
     Right x -> return $ unsafeMkA (makeDeltaAst x) 0
 
 -- type Parser a = GHC.DynFlags -> FilePath -> String -> ParseResult a
