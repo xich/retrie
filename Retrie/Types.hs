@@ -130,11 +130,10 @@ newtype Matcher a = Matcher (I.IntMap (UMap a))
 -- See Note [AlphaEnv Offset] for details.
 
 instance Semigroup (Matcher a) where
-  (<>) = mappend
+  (Matcher m1) <> (Matcher m2) = Matcher (I.unionWith mUnion m1 m2)
 
 instance Monoid (Matcher a) where
   mempty = Matcher I.empty
-  mappend (Matcher m1) (Matcher m2) = Matcher (I.unionWith mUnion m1 m2)
 
 -- | Compile a 'Query' into a 'Matcher'.
 mkMatcher :: Matchable ast => Query ast v -> Matcher v

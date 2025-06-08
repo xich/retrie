@@ -36,7 +36,7 @@ module Retrie.ExactPrint.Annotated
   , unsafeMkA
   ) where
 
-import Control.Monad.State.Lazy hiding (fix)
+import Control.Monad.State.Lazy
 import Data.Default as D
 
 import Data.Functor.Identity

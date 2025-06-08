@@ -223,7 +223,7 @@ updateBinder fvs rdr
 -- Only works on unqualified RdrNames. This is fine, as we only use this to
 -- rename local binders.
 renameBinder :: RdrName -> FreeVars -> RdrName
-renameBinder rdr fvs = head
+renameBinder rdr fvs = headNoWarn
   [ rdr'
   | i <- [n..]
   , let rdr' = mkVarUnqual $ mkFastString $ baseName ++ show i
@@ -233,6 +233,12 @@ renameBinder rdr fvs = head
     (ds, rest) = span isDigit $ reverse $ occNameString $ occName rdr
 
     baseName = reverse rest
+
+    -- We build with -Wall -Werror, and there is a warning about how `head` is
+    -- partial. Using `head` is safe here because the list is infinite, so the
+    -- nil case is impossible. Define our own to avoid the warning.
+    headNoWarn (x:_) = x
+    headNoWarn _ = error "headNoWarn: impossible!"
 
     n :: Int
     n | null ds = 1

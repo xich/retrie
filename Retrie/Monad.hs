@@ -38,7 +38,7 @@ import Data.Foldable
 
 import Retrie.Context
 import Retrie.CPP
-import Retrie.ExactPrint hiding (rs)
+import Retrie.ExactPrint
 import Retrie.Fixity
 import Retrie.GroundTerms
 import Retrie.Query
@@ -125,7 +125,6 @@ instance Applicative Retrie where
   (<*>) = ap
 
 instance Monad Retrie where
-  return = Pure
   (>>=) = Bind
 
 instance MonadIO Retrie where

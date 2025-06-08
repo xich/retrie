@@ -29,20 +29,17 @@ module Retrie.ExactPrint
   , swapEntryDPT
   , transferAnnsT
   , transferEntryAnnsT
-  , transferEntryDPT
   -- , tryTransferEntryDPT
   , transferAnchor
     -- * Utils
   , debugDump
   , debugParse
-  , debug
   , hasComments
   , isComma
     -- * Annotated AST
   , module Retrie.ExactPrint.Annotated
     -- * ghc-exactprint re-exports
   , module Language.Haskell.GHC.ExactPrint
-  -- , module Language.Haskell.GHC.ExactPrint.Annotate
   , module Language.Haskell.GHC.ExactPrint.Types
   , module Language.Haskell.GHC.ExactPrint.Utils
   , module Language.Haskell.GHC.ExactPrint.Transform
@@ -50,37 +47,32 @@ module Retrie.ExactPrint
 
 import Control.Exception
 import Control.Monad
-import Control.Monad.State.Lazy hiding (fix)
--- import Data.Function (on)
+import Control.Monad.State.Lazy
 import Data.List (transpose)
--- import Data.Maybe
--- import qualified Data.Map as M
 import Text.Printf
 
 import Language.Haskell.GHC.ExactPrint hiding
-  (
-   setEntryDP
+  ( d1
+  , m1
+  , mn
+  , setEntryDP
   , transferEntryDP
   )
--- import Language.Haskell.GHC.ExactPrint.ExactPrint (ExactPrint)
-import Language.Haskell.GHC.ExactPrint.Utils hiding (debug)
+import Language.Haskell.GHC.ExactPrint.Utils hiding
+  ( rs
+  )
 import qualified Language.Haskell.GHC.ExactPrint.Parsers as Parsers
 import Language.Haskell.GHC.ExactPrint.Types
   ( showGhc
   )
-import Language.Haskell.GHC.ExactPrint.Transform
+import Language.Haskell.GHC.ExactPrint.Transform hiding (d1, m1, mn)
 
 import Retrie.ExactPrint.Annotated
 import Retrie.Fixity
 import Retrie.GHC
 import Retrie.SYB hiding (ext1)
-import Retrie.Util
 
 import GHC.Stack
-import Debug.Trace
-
-debug :: c -> String -> c
-debug c s = trace s c
 
 -- Fixity traversal -----------------------------------------------------------
 
@@ -106,16 +98,12 @@ fixOneExpr
   => FixityEnv
   -> LHsExpr GhcPs
   -> TransformT m (LHsExpr GhcPs)
-fixOneExpr env (L l2 (OpApp x2 ap1@(L l1 (OpApp x1 x op1 y)) op2 z))
+fixOneExpr env (L l2 (OpApp x2 ap1@(L _ (OpApp x1 x op1 y)) op2 z))
   | associatesRight (lookupOp op1 env) (lookupOp op2 env) = do
-    -- lift $ liftIO $ debugPrint Loud "fixOneExpr:(l1,l2)="  [showAst (l1,l2)]
     let ap2' = L (stripComments l2) $ OpApp x2 y op2 z
     (ap1_0, ap2'_0) <- swapEntryDPT ap1 ap2'
-    ap1_1 <- transferAnnsT isComma ap2'_0 ap1_0
-    -- lift $ liftIO $ debugPrint Loud "fixOneExpr:recursing"  []
+    _ <- transferAnnsT isComma ap2'_0 ap1_0
     rhs <- fixOneExpr env ap2'_0
-    -- lift $ liftIO $ debugPrint Loud "fixOneExpr:returning"  [showAst (L l2 $ OpApp x1 x op1 rhs)]
-    -- return $ L l1 $ OpApp x1 x op1 rhs
     return $ L l2 $ OpApp x1 x op1 rhs
 fixOneExpr _ e = return e
 
@@ -123,8 +111,8 @@ fixOnePat :: Monad m => FixityEnv -> LPat GhcPs -> TransformT m (LPat GhcPs)
 fixOnePat env (dLPat -> Just (L l2 (ConPat ext2 op2 (InfixCon (dLPat -> Just ap1@(L l1 (ConPat ext1 op1 (InfixCon x y)))) z))))
   | associatesRight (lookupOpRdrName op1 env) (lookupOpRdrName op2 env) = do
     let ap2' = L l2 (ConPat ext2 op2 (InfixCon y z))
-    (ap1_0, ap2'_0) <- swapEntryDPT ap1 ap2'
-    ap1_1 <- transferAnnsT isComma ap2' ap1
+    (_, ap2'_0) <- swapEntryDPT ap1 ap2'
+    _ <- transferAnnsT isComma ap2' ap1
     rhs <- fixOnePat env (cLPat ap2'_0)
     return $ cLPat $ L l1 (ConPat ext1 op1 (InfixCon x rhs))
 fixOnePat _ e = return e
@@ -144,25 +132,6 @@ fixOneEntry
   -> LocatedA a -- ^ Left child
   -> TransformT m (LocatedA a, LocatedA a)
 fixOneEntry e x = do
-  -- lift $ liftIO $ debugPrint Loud "fixOneEntry:(e,x)="  [showAst (e,x)]
-  -- -- anns <- getAnnsT
-  -- let
-  --   zeros = SameLine 0
-  --   (xdp, ard) =
-  --     case M.lookup (mkAnnKey x) anns of
-  --       Nothing -> (zeros, zeros)
-  --       Just ann -> (annLeadingCommentEntryDelta ann, annEntryDelta ann)
-  --   xr = getDeltaLine xdp
-  --   xc = deltaColumn xdp
-  --   actualRow = getDeltaLine ard
-  --   edp =
-  --     maybe zeros annLeadingCommentEntryDelta $ M.lookup (mkAnnKey e) anns
-  --   er = getDeltaLine edp
-  --   ec = deltaColumn edp
-  -- when (actualRow == 0) $ do
-  --   setEntryDPT e $ deltaPos (er, xc + ec)
-  --   setEntryDPT x $ deltaPos (xr, 0)
-
   -- We assume that ghc-exactprint has converted all Anchor's to use their delta variants.
   -- Get the dp for the x component
   let xdp = entryDP x
@@ -173,7 +142,7 @@ fixOneEntry e x = do
   let er = getDeltaLine edp
   let ec = deltaColumn edp
   case xdp of
-    SameLine n -> do
+    SameLine _n -> do
       -- lift $ liftIO $ debugPrint Loud "fixOneEntry:(xdp,edp)="  [showAst (xdp,edp)]
       -- lift $ liftIO $ debugPrint Loud "fixOneEntry:(dpx,dpe)="  [showAst ((deltaPos er (xc + ec)),(deltaPos xr 0))]
       -- lift $ liftIO $ debugPrint Loud "fixOneEntry:e'="  [showAst e]
@@ -181,20 +150,6 @@ fixOneEntry e x = do
       return ( setEntryDP e (deltaPos er (xc + ec))
              , setEntryDP x (deltaPos xr 0))
     _ -> return (e,x)
-
-  -- anns <- getAnnsT
-  -- let
-  --   zeros = DP (0,0)
-  --   (DP (xr,xc), DP (actualRow,_)) =
-  --     case M.lookup (mkAnnKey x) anns of
-  --       Nothing -> (zeros, zeros)
-  --       Just ann -> (annLeadingCommentEntryDelta ann, annEntryDelta ann)
-  --   DP (er,ec) =
-  --     maybe zeros annLeadingCommentEntryDelta $ M.lookup (mkAnnKey e) anns
-  -- when (actualRow == 0) $ do
-  --   setEntryDPT e $ DP (er, xc + ec)
-  --   setEntryDPT x $ DP (xr, 0)
-  -- return e
 
 -- TODO: move this somewhere more appropriate
 entryDP :: LocatedA a -> DeltaPos
@@ -206,7 +161,7 @@ entryDP (L (SrcSpanAnn (EpAnn anc _ _) _) _)
 
 
 fixOneEntryExpr :: MonadIO m => LHsExpr GhcPs -> TransformT m (LHsExpr GhcPs)
-fixOneEntryExpr e@(L l (OpApp a x b c)) = do
+fixOneEntryExpr e@(L _ (OpApp a x b c)) = do
   -- lift $ liftIO $ debugPrint Loud "fixOneEntryExpr:(e,x)="  [showAst (e,x)]
   (e',x') <- fixOneEntry e x
   -- lift $ liftIO $ debugPrint Loud "fixOneEntryExpr:(e',x')="  [showAst (e',x')]
@@ -216,7 +171,7 @@ fixOneEntryExpr e = return e
 
 fixOneEntryPat :: MonadIO m => LPat GhcPs -> TransformT m (LPat GhcPs)
 fixOneEntryPat pat
-  | Just p@(L l (ConPat a b (InfixCon x c))) <- dLPat pat = do
+  | Just p@(L _ (ConPat a b (InfixCon x c))) <- dLPat pat = do
     (p', x') <- fixOneEntry p (dLPatUnsafe x)
     return (cLPat $ (L (getLoc p') (ConPat a b (InfixCon x' c))))
   | otherwise = return pat
@@ -232,22 +187,6 @@ swapEntryDPT a b = do
   b' <- transferEntryDP a b
   a' <- transferEntryDP b a
   return (a',b')
-
--- swapEntryDPT
---   :: (Data a, Data b, Monad m)
---   => LocatedAn a1 a -> LocatedAn a2 b -> TransformT m ()
--- swapEntryDPT a b =
---   modifyAnnsT $ \ anns ->
---   let akey = mkAnnKey a
---       bkey = mkAnnKey b
---       aann = fromMaybe annNone $ M.lookup akey anns
---       bann = fromMaybe annNone $ M.lookup bkey anns
---   in M.insert akey
---       aann { annEntryDelta = annEntryDelta bann
---            , annPriorComments = annPriorComments bann } $
---      M.insert bkey
---       bann { annEntryDelta = annEntryDelta aann
---            , annPriorComments = annPriorComments aann } anns
 
 -------------------------------------------------------------------------------
 
@@ -296,7 +235,6 @@ parseStmt libdir str = do
   -- debugPrint Loud "parseStmt:for" [str]
   res <- parseHelper libdir "parseStmt" Parsers.parseStmt str
   return (setEntryDPA res (DifferentLine 1 0))
-  -- return res
 
 
 -- | Parse a 'HsType'.
@@ -348,34 +286,6 @@ transferEntryAnnsT p a b = do
   b' <- transferEntryDP a b
   transferAnnsT p a b'
 
--- | 'Transform' monad version of 'transferEntryDP'
-transferEntryDPT
-  :: (HasCallStack, Data a, Data b, Monad m)
-  => Located a -> Located b -> TransformT m ()
--- transferEntryDPT a b = modifyAnnsT (transferEntryDP a b)
-transferEntryDPT _a _b = error "transferEntryDPT"
-
--- tryTransferEntryDPT
---   :: (Data a, Data b, Monad m)
---   => Located a -> Located b -> TransformT m ()
--- tryTransferEntryDPT a b = modifyAnnsT $ \anns ->
---   if M.member (mkAnnKey a) anns
---     then transferEntryDP a b anns
---     else anns
-
--- This function fails if b is not in Anns, which seems dumb, since we are inserting it.
--- transferEntryDP :: (HasCallStack, Data a, Data b) => Located a -> Located b -> Anns -> Anns
--- transferEntryDP a b anns = setEntryDP b dp anns'
---   where
---     maybeAnns = do -- Maybe monad
---       anA <- M.lookup (mkAnnKey a) anns
---       let anB = M.findWithDefault annNone (mkAnnKey b) anns
---           anB' = anB { annEntryDelta = DP (0,0) }
---       return (M.insert (mkAnnKey b) anB' anns, annLeadingCommentEntryDelta anA)
---     (anns',dp) = fromMaybe
---                   (error $ "transferEntryDP: lookup failed: " ++ show (mkAnnKey a))
---                   maybeAnns
-
 addAllAnnsT
   :: (HasCallStack, Monoid an, Data a, Data b, MonadIO m, Typeable an)
   => LocatedAn an a -> LocatedAn an b -> TransformT m (LocatedAn an b)
@@ -383,27 +293,6 @@ addAllAnnsT a b = do
   -- AZ: to start with, just transfer the entry DP from a to b
   transferEntryDP a b
 
-
--- addAllAnnsT
---   :: (HasCallStack, Data a, Data b, Monad m)
---   => Located a -> Located b -> TransformT m ()
--- addAllAnnsT a b = modifyAnnsT (addAllAnns a b)
-
--- addAllAnns :: (HasCallStack, Data a, Data b) => Located a -> Located b -> Anns -> Anns
--- addAllAnns a b anns =
---   fromMaybe
---     (error $ "addAllAnns: lookup failed: " ++ show (mkAnnKey a)
---       ++ " or " ++ show (mkAnnKey b))
---     $ do ann <- M.lookup (mkAnnKey a) anns
---          case M.lookup (mkAnnKey b) anns of
---            Just ann' -> return $ M.insert (mkAnnKey b) (ann `annAdd` ann') anns
---            Nothing -> return $ M.insert (mkAnnKey b) ann anns
---   where annAdd ann ann' = ann'
---           { annEntryDelta = annEntryDelta ann
---           , annPriorComments = ((++) `on` annPriorComments) ann ann'
---           , annFollowingComments = ((++) `on` annFollowingComments) ann ann'
---           , annsDP = ((++) `on` annsDP) ann ann'
---           }
 
 transferAnchor :: LocatedA a -> LocatedA b -> LocatedA b
 transferAnchor (L (SrcSpanAnn EpAnnNotUsed l)    _) lb = setAnchorAn lb (spanAsAnchor l) emptyComments
@@ -414,44 +303,13 @@ isComma :: TrailingAnn -> Bool
 isComma (AddCommaAnn _) = True
 isComma _ = False
 
-isCommentKeyword :: AnnKeywordId -> Bool
--- isCommentKeyword (AnnComment _) = True
-isCommentKeyword _ = False
-
--- isCommentAnnotation :: Annotation -> Bool
--- isCommentAnnotation Ann{..} =
---   (not . null $ annPriorComments)
---   || (not . null $ annFollowingComments)
---   || any (isCommentKeyword . fst) annsDP
-
 hasComments :: LocatedAn an a -> Bool
 hasComments (L (SrcSpanAnn EpAnnNotUsed _) _) = False
-hasComments (L (SrcSpanAnn (EpAnn anc _ cs) _) _)
+hasComments (L (SrcSpanAnn (EpAnn _ _ cs) _) _)
   = case cs of
       EpaComments [] -> False
       EpaCommentsBalanced [] [] -> False
       _ -> True
-
--- hasComments :: (Data a, Monad m) => Located a -> TransformT m Bool
--- hasComments e = do
---   anns <- getAnnsT
---   let b = isCommentAnnotation <$> M.lookup (mkAnnKey e) anns
---   return $ fromMaybe False b
-
--- transferAnnsT
---   :: (Data a, Data b, Monad m)
---   => (KeywordId -> Bool)        -- transfer Anns matching predicate
---   -> Located a                  -- from
---   -> Located b                  -- to
---   -> TransformT m ()
--- transferAnnsT p a b = modifyAnnsT f
---   where
---     bKey = mkAnnKey b
---     f anns = fromMaybe anns $ do
---       anA <- M.lookup (mkAnnKey a) anns
---       anB <- M.lookup bKey anns
---       let anB' = anB { annsDP = annsDP anB ++ filter (p . fst) (annsDP anA) }
---       return $ M.insert bKey anB' anns
 
 transferAnnsT
   :: (Data a, Data b, Monad m)
@@ -459,8 +317,8 @@ transferAnnsT
   -> LocatedA a                 -- from
   -> LocatedA b                 -- to
   -> TransformT m (LocatedA b)
-transferAnnsT p (L (SrcSpanAnn EpAnnNotUsed _) _) b = return b
-transferAnnsT p (L (SrcSpanAnn (EpAnn anc (AnnListItem ts) cs) l) a) (L (SrcSpanAnn an lb) b) = do
+transferAnnsT _ (L (SrcSpanAnn EpAnnNotUsed _) _) b = return b
+transferAnnsT p (L (SrcSpanAnn (EpAnn _ (AnnListItem ts) _) _) _) (L (SrcSpanAnn an lb) b) = do
   let ps = filter p ts
   let an' = case an of
         EpAnnNotUsed -> EpAnn (spanAsAnchor lb) (AnnListItem ps) emptyComments

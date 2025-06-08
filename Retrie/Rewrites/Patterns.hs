@@ -9,7 +9,7 @@
 {-# LANGUAGE RecordWildCards #-}
 module Retrie.Rewrites.Patterns (patternSynonymsToRewrites) where
 
-import Control.Monad.State (StateT(runStateT), lift)
+import Control.Monad.State (StateT(runStateT))
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Maybe

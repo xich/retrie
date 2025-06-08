@@ -105,7 +105,8 @@ parseCPP p orig
 printCPP :: [Replacement] -> CPP AnnotatedModule -> String
 printCPP _ (NoCPP m) = printA m
 -- printCPP _ (NoCPP m) = error $ "printCPP:m=" ++ showAstA m
-printCPP repls (CPP orig is ms) = Text.unpack $ Text.unlines $
+printCPP _ (CPP _ _ []) = error $ "printCPP: empty list of modules!"
+printCPP repls (CPP orig is (m1:_)) = Text.unpack $ Text.unlines $
   case is of
     [] -> splice "" 1 1 sorted origLines
     _ ->
@@ -123,7 +124,7 @@ printCPP repls (CPP orig is ms) = Text.unpack $ Text.unlines $
       ]
 
     origLines = Text.lines orig
-    mbName = unLoc <$> hsmodName (unLoc $ astA $ head ms)
+    mbName = unLoc <$> hsmodName (unLoc $ astA m1)
     importLines = runIdentity $ fmap astA $ transformA (filterAndFlatten mbName is) $
       mapM $ fmap (Text.pack . dropWhile isSpace . printA) . pruneA
 
