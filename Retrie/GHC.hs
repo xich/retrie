@@ -4,6 +4,7 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 module Retrie.GHC
   ( module Retrie.GHC
@@ -110,11 +111,17 @@ ruleBindersToQs bs = catMaybes
   ]
 
 tyBindersToLocatedRdrNames :: [LHsTyVarBndr s GhcPs] -> [LocatedN RdrName]
-tyBindersToLocatedRdrNames vars = catMaybes
-  [ case var of
-      UserTyVar _ _ v -> Just v
-      KindedTyVar _ _ v _ -> Just v
-  | L _ var <- vars ]
+#if __GLASGOW_HASKELL__ < 912
+tyBindersToLocatedRdrNames = map (hsTyVarLName . unLoc)
+#else
+-- Note: we can't use 'hsLTyVarNames' here because it throws away the wildcards,
+-- and we _must_ preserve the length of the list. Also can't use some of the
+-- other single-binder variants of hsTyVarLName because they throw away the
+-- location on the RdrName result.
+tyBindersToLocatedRdrNames = map (fromMaybe mkWildcard . hsTyVarLName . unLoc)
+  where
+    mkWildcard = error "tyBindersToLocatedRdrNames: wildcard type binder not supported"
+#endif
 
 data RuleInfo = RuleInfo
   { riName :: RuleName
