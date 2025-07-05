@@ -85,9 +85,8 @@ ignoreWorker prefix verbosity targetDir extraDirs cmd = handle (handler prefix v
         idirs = extraDirs dirs
       return $ Just
         $ \fp -> fp `Set.member` ifiles || any (`isPrefixOf` fp) idirs
-    ExitFailure _ -> do
-      when (verbosity > Normal) $ putErrStrLn $ prefix ++ err
-      return Nothing
+    ExitFailure code -> throwIO $ userError $ concat 
+        ["Exited with code: ", show code, "\nStderr: ", err]
 
 handler :: String -> Verbosity -> IOError -> IO (Maybe a)
 handler prefix verbosity err = do

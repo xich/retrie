@@ -4,6 +4,7 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -149,8 +150,12 @@ trimA = runIdentity . transformA nil . const . graftA
     nil :: Annotated ()
     nil = mempty
 
+#if __GLASGOW_HASKELL__ < 912
 setEntryDPA :: (Default an)
             => Annotated (LocatedAn an ast) -> DeltaPos -> Annotated (LocatedAn an ast)
+#else
+setEntryDPA :: Annotated (LocatedAn an ast) -> DeltaPos -> Annotated (LocatedAn an ast)
+#endif
 setEntryDPA (Annotated ast s) dp = Annotated (setEntryDP ast dp) s
 
 -- | Exactprint an 'Annotated' thing.
