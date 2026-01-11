@@ -33,8 +33,6 @@ module Retrie.ExactPrint
   , swapEntryDPT
   , transferAnnsT
   , transferEntryAnnsT
-  -- , tryTransferEntryDPT
-  , transferEpAnn
     -- * Utils
   , debugDump
   , debugParse
@@ -385,17 +383,6 @@ addAllAnnsT a b = do
 addAllAnnsT a b = return $ transferEntryDP a b
 #endif
 
-
--- TODO (xich): remove this and replace usage with addAllAnnsT that does the
--- right thing
-#if __GLASGOW_HASKELL__ < 912
-transferEpAnn :: Default an => LocatedAn an a -> LocatedAn an b -> LocatedAn an b
-transferEpAnn (L (SrcSpanAnn EpAnnNotUsed l)    _) lb = setAnchorAn lb (spanAsAnchor l) emptyComments
-transferEpAnn (L (SrcSpanAnn (EpAnn anc _ _) _) _) lb = setAnchorAn lb anc              emptyComments
-#else
-transferEpAnn :: GenLocated (EpAnn ann) a -> GenLocated (EpAnn ann) b -> GenLocated (EpAnn ann) b
-transferEpAnn (L epann _) (L _ b) = L epann b
-#endif
 
 
 isComma :: TrailingAnn -> Bool
