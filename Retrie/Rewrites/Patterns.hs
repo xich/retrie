@@ -4,6 +4,7 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -92,15 +93,24 @@ asPat patName params = do
     convertFields :: (Monad m) => [RecordPatSynField GhcPs]
                       -> TransformT m (HsRecFields GhcPs (LPat GhcPs))
     convertFields fields =
+#if __GLASGOW_HASKELL__ < 912
       HsRecFields <$> traverse convertField fields <*> pure Nothing
+#else
+      HsRecFields noExtField <$> traverse convertField fields <*> pure Nothing
+#endif
 
     convertField :: (Monad m) => RecordPatSynField GhcPs
                       -> TransformT m (LHsRecField GhcPs (LPat GhcPs))
     convertField RecordPatSynField{..} = do
+#if __GLASGOW_HASKELL__ < 912
       s <- uniqueSrcSpanT
       an <- mkEpAnn (SameLine 0) NoEpAnns
       let srcspan = SrcSpanAnn an s
           hfbLHS = L srcspan recordPatSynField
+#else
+      an <- mkEpAnn (SameLine 0) noAnn
+      let hfbLHS = L an recordPatSynField
+#endif
       hfbRHS <- mkVarPat recordPatSynPatVar
       let hfbPun = False
           hfbAnn = noAnn
@@ -136,5 +146,9 @@ buildMatch names rhs = do
   pats <- traverse mkVarPat names
   let bs = collectPatBinders CollNoDictBinders rhs
   (rhsExpr,(_,_bs')) <- runStateT (patToExpr rhs) (wildSupply bs, bs)
+#if __GLASGOW_HASKELL__ < 912
   let alt = mkMatch PatSyn pats rhsExpr emptyLocalBinds
+#else
+  let alt = mkMatch PatSyn (noLocA pats) rhsExpr emptyLocalBinds
+#endif
   return [alt]

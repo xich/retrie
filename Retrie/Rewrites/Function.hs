@@ -4,6 +4,7 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE TupleSections #-}
 module Retrie.Rewrites.Function
   ( dfnsToRewrites
@@ -62,14 +63,20 @@ matchToRewrites
   -> LMatch GhcPs (LHsExpr GhcPs)
   -> TransformT IO [Rewrite (LHsExpr GhcPs)]
 matchToRewrites e imps dir (L _ alt) = do
-  -- lift $ debugPrint Loud "matchToRewrites:e="  [showAst e]
   let
-    pats = m_pats alt
+    pats = getMatchPats alt
     grhss = m_grhss alt
   qss <- for (zip (inits pats) (tails pats)) $
     makeFunctionQuery e imps dir grhss mkApps
   qs <- backtickRules e imps dir grhss pats
   return $ qs ++ concat qss
+
+getMatchPats :: Match GhcPs (LHsExpr GhcPs) -> [LPat GhcPs]
+#if __GLASGOW_HASKELL__ < 912
+getMatchPats = m_pats
+#else
+getMatchPats = unLoc . m_pats
+#endif
 
 type AppBuilder =
   LHsExpr GhcPs -> [LHsExpr GhcPs] -> TransformT IO (LHsExpr GhcPs)
@@ -80,8 +87,13 @@ irrefutablePat = go . unLoc
     go WildPat{} = True
     go VarPat{} = True
     go (LazyPat _ p) = irrefutablePat p
+#if __GLASGOW_HASKELL__ < 912
     go (AsPat _ _ _ p) = irrefutablePat p
     go (ParPat _ _ p _) = irrefutablePat p
+#else
+    go (AsPat _ _ p) = irrefutablePat p
+    go (ParPat _ p) = irrefutablePat p
+#endif
     go (BangPat _ p) = irrefutablePat p
     go _ = False
 
@@ -125,13 +137,25 @@ backtickRules
 backtickRules e imps dir@LeftToRight grhss ps@[p1, p2] = do
   let
     both, left, right :: AppBuilder
+#if __GLASGOW_HASKELL__ < 912
     both op [l, r] = mkLocA (SameLine 1) (OpApp noAnn l op r)
+#else
+    both op [l, r] = mkLocA (SameLine 1) (OpApp noExtField l op r)
+#endif
     both _ _ = fail "backtickRules - both: impossible!"
 
+#if __GLASGOW_HASKELL__ < 912
     left op [l] = mkLocA (SameLine 1) (SectionL noAnn l op)
+#else
+    left op [l] = mkLocA (SameLine 1) (SectionL noExtField l op)
+#endif
     left _ _ = fail "backtickRules - left: impossible!"
 
+#if __GLASGOW_HASKELL__ < 912
     right op [r] = mkLocA (SameLine 1) (SectionR noAnn op r)
+#else
+    right op [r] = mkLocA (SameLine 1) (SectionR noExtField op r)
+#endif
     right _ _ = fail "backtickRules - right: impossible!"
   qs <- makeFunctionQuery e imps dir grhss both (ps, [])
   qsl <- makeFunctionQuery e imps dir grhss left ([p1], [p2])

@@ -86,7 +86,7 @@ replaceImpl c e = do
       res' <- (mkM (parenify c) `extM` parenifyT c `extM` parenifyP c) r0
       -- Make sure the replacement has the same anchor as the thing
       -- being replaced
-      let res = transferAnchor e res'
+      let res = transferEpAnn e res'
 
       -- prune the resulting expression and log it with location
       orig <- printNoLeadingSpaces <$> pruneA e

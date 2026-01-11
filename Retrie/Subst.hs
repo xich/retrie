@@ -4,6 +4,7 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ViewPatterns #-}
 module Retrie.Subst (subst) where
 
@@ -55,9 +56,11 @@ substExpr ctxt e@(L l1 (HsVar x (L l2 v))) =
       -- lift $ liftIO $ debugPrint Loud "substExpr:HoleExpr:e" [showAst e]
       -- lift $ liftIO $ debugPrint Loud "substExpr:HoleExpr:eA" [showAst eA]
       e0 <- graftA (unparen <$> eA)
-      e1 <- if hasComments e0
-               then return e0
-               else transferEntryDP e e0
+#if __GLASGOW_HASKELL__ < 912
+      e1 <- if hasComments e0 then return e0 else transferEntryDP e e0
+#else
+      e1 <- if hasComments e0 then return e0 else return $ transferEntryDP e e0
+#endif
       e2 <- transferAnnsT isComma e e1
       -- let e'' = setEntryDP e' (SameLine 1)
       -- lift $ liftIO $ debugPrint Loud "substExpr:HoleExpr:e2" [showAst e2]
@@ -111,11 +114,19 @@ substType _ ty = return ty
 substHsMatchContext
   :: Monad m
   => Context
+#if __GLASGOW_HASKELL__ < 912
   -> HsMatchContext GhcPs
   -> TransformT m (HsMatchContext GhcPs)
 substHsMatchContext ctxt (FunRhs (L l v) f s)
-  | Just (HoleRdr rdr) <- lookupHoleVar v ctxt =
-    return $ FunRhs (L l rdr) f s
+  | Just (HoleRdr rdr) <- lookupHoleVar v ctxt
+  = return $ FunRhs (L l rdr) f s
+#else
+  -> HsMatchContext (LIdP GhcPs)
+  -> TransformT m (HsMatchContext (LIdP GhcPs))
+substHsMatchContext ctxt (FunRhs (L l v) f s _)
+  | Just (HoleRdr rdr) <- lookupHoleVar v ctxt
+  = return $ FunRhs (L l rdr) f s (AnnFunRhs NoEpTok [] [])
+#endif
 substHsMatchContext _ other = return other
 
 substBind
