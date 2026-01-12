@@ -1205,7 +1205,7 @@ extractBinderInfo = go . unLoc
 #if __GLASGOW_HASKELL__ < 912
     go (UserTyVar _ _ v) = (unLoc v, Nothing)
     go (KindedTyVar _ _ v k) = (unLoc v, Just k)
-    go (XTyVarBndr _) = error "extractBinderInfo: XTyVarBndr unsupported"
+    go (XTyVarBndr _) = missingSyntax "XTyVarBndr"
 #else
     go HsTvb{..} =
       case tvb_var of
@@ -1213,9 +1213,9 @@ extractBinderInfo = go . unLoc
             case tvb_kind of
               HsBndrKind _ lkind -> (unLoc rdr, Just lkind)
               _ -> (unLoc rdr, Nothing)
-        HsBndrWildCard _ -> error "extractBinderInfo: wildcard tyvars unsupported!"
-        XBndrVar _ -> error "extractBinderInfo: XBndrVar impossible!"
-    go XTyVarBndr{} = error "extractBinderInfo: XTyVarBndr impossible!"
+        HsBndrWildCard _ -> missingSyntax "HsBndrWildCard"
+        XBndrVar _ -> missingSyntax "XBndrVar"
+    go XTyVarBndr{} = missingSyntax "XTyVarBndr"
 #endif
 
 ------------------------------------------------------------------------
