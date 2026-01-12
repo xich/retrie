@@ -189,7 +189,11 @@ mkLams vs e = do
       _ -> fail "mkLams: lambda expression can only have a single grhs!"
   matches <- mkLocA (SameLine 0) [L l (Match anm ctxt pats (GRHSs cs grhs' binds))]
   let
+#if __GLASGOW_HASKELL__ < 908
+    mg = mkMatchGroup Generated matches
+#else
     mg = mkMatchGroup (Generated SkipPmc) matches
+#endif
   mkLocA (SameLine 1) $ HsLam noExtField mg
 #endif
 

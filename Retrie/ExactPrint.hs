@@ -49,7 +49,7 @@ module Retrie.ExactPrint
 
 import Control.Exception
 import Control.Monad
-#if __GLASGOW_HASKELL__ < 912
+#if __GLASGOW_HASKELL__ < 908
 import Data.Default (Default)
 #endif
 import Control.Monad.State.Lazy
