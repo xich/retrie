@@ -102,13 +102,14 @@ makeFunctionQuery e imps dir grhss mkAppFn (argpats, bndpats)
   | any (not . irrefutablePat) bndpats = return []
   | otherwise = do
     let
-      GRHSs _ rhss lbs = grhss
+      GRHSs _ _ lbs = grhss
+      rhssList = grhssList grhss
       bs = collectPatsBinders CollNoDictBinders argpats
     -- See Note [Wildcards]
     (es,(_,bs')) <- runStateT (mapM patToExpr argpats) (wildSupply bs, bs)
     -- lift $ debugPrint Loud "makeFunctionQuery:e="  [showAst e]
     lhs <- mkAppFn e es
-    for rhss $ \ grhs -> do
+    for rhssList $ \ grhs -> do
       le <- mkLet lbs (grhsToExpr grhs)
       rhs <- mkLams bndpats le
       let

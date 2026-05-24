@@ -177,8 +177,10 @@ instance PatternMap LMap where
       go (HsWordPrim _ i)   = m { lmWordPrim = mAlter env vs i f (lmWordPrim m) }
       go (HsInt64Prim _ i)  = m { lmInt64Prim = mAlter env vs i f (lmInt64Prim m) }
       go (HsWord64Prim _ i) = m { lmWord64Prim = mAlter env vs i f (lmWord64Prim m) }
+#if __GLASGOW_HASKELL__ < 914
       go HsInteger{} = missingSyntax "HsInteger"
       go HsRat{} = missingSyntax "HsRat"
+#endif
       go HsFloatPrim{} = missingSyntax "HsFloatPrim"
       go HsDoublePrim{} = missingSyntax "HsDoublePrim"
 #if __GLASGOW_HASKELL__ < 908
@@ -409,7 +411,11 @@ instance PatternMap EMap where
       go HsPragE{} = missingSyntax "HsPragE"
       go HsTypedBracket{} = missingSyntax "HsTypedBracket"
       go HsUntypedBracket{} = missingSyntax "HsUntypedBracket"
+#if __GLASGOW_HASKELL__ >= 914
+      go HsHole{} = missingSyntax "HsHole"
+#else
       go HsUnboundVar{} = missingSyntax "HsUnboundVar"
+#endif
       go HsOverLabel{} = missingSyntax "HsOverLabel"
       go HsAppType{} = missingSyntax "HsAppType"
       go ExplicitSum{} = missingSyntax "ExplicitSum"
@@ -674,7 +680,11 @@ emptyCDMapWrapper :: CDMap a
 emptyCDMapWrapper = CDMap mEmpty mEmpty
 
 instance PatternMap CDMap where
+#if __GLASGOW_HASKELL__ >= 914
+  type Key CDMap = HsConDetails (LocatedA (Pat GhcPs)) (HsRecFields GhcPs (LocatedA (Pat GhcPs)))
+#else
   type Key CDMap = HsConDetails (HsConPatTyArg GhcPs) (LocatedA (Pat GhcPs)) (HsRecFields GhcPs (LocatedA (Pat GhcPs)))
+#endif
 
   mEmpty :: CDMap a
   mEmpty = CDEmpty
@@ -691,8 +701,12 @@ instance PatternMap CDMap where
   mAlter env vs d f CDEmpty   = mAlter env vs d f emptyCDMapWrapper
   mAlter env vs d f m@CDMap{} = go d
     where
+#if __GLASGOW_HASKELL__ >= 914
+      go (PrefixCon ps) = m { cdPrefixCon = mAlter env vs ps f (cdPrefixCon m) }
+#else
       -- TODO(xich): properly handle tyargs here!
       go (PrefixCon _tyargs ps) = m { cdPrefixCon = mAlter env vs ps f (cdPrefixCon m) }
+#endif
       go (RecCon _) = missingSyntax "RecCon"
       go (InfixCon p1 p2) = m { cdInfixCon = mAlter env vs p1
                                               (toA (mAlter env vs p2 f))
@@ -702,8 +716,12 @@ instance PatternMap CDMap where
   mMatch _   _ (_ ,CDEmpty)   = []
   mMatch env d (hs,m@CDMap{}) = go d (hs,m)
     where
+#if __GLASGOW_HASKELL__ >= 914
+      go (PrefixCon ps) = mapFor cdPrefixCon >=> mMatch env ps
+#else
       -- TODO(xich): properly handle tyargs here!
       go (PrefixCon _tyargs ps) = mapFor cdPrefixCon >=> mMatch env ps
+#endif
       go (InfixCon p1 p2) = mapFor cdInfixCon >=> mMatch env p1 >=> mMatch env p2
       go _ = const [] -- TODO
 
@@ -823,11 +841,11 @@ instance PatternMap GRHSSMap where
         env' = foldr extendAlphaEnvInternal env bs
         vs' = vs `exceptQ` bs
     in GRHSSMap (mAlter env vs lbs
-                  (toA (mAlter env' vs' (map unLoc $ grhssGRHSs grhss) f)) m)
+                  (toA (mAlter env' vs' (map unLoc $ grhssList grhss) f)) m)
 
   mMatch :: MatchEnv -> Key GRHSSMap -> (Substitution, GRHSSMap a) -> [(Substitution, a)]
   mMatch env grhss = mapFor unGRHSSMap >=> mMatch env lbs
-                      >=> mMatch env' (map unLoc $ grhssGRHSs grhss)
+                      >=> mMatch env' (map unLoc $ grhssList grhss)
     where
       lbs = grhssLocalBinds  grhss
       bs = collectLocalBinders CollNoDictBinders lbs
@@ -1147,8 +1165,10 @@ instance PatternMap TyMap where
       go HsKindSig{} = missingSyntax "HsKindSig"
       go HsSpliceTy{} = missingSyntax "HsSpliceTy"
       go HsDocTy{} = missingSyntax "HsDocTy"
+#if __GLASGOW_HASKELL__ < 914
       go HsBangTy{} = missingSyntax "HsBangTy"
       go HsRecTy{} = missingSyntax "HsRecTy"
+#endif
       go (HsAppTy _ ty1 ty2) = m { tyHsAppTy = mAlter env vs ty1 (toA (mAlter env vs ty2 f)) (tyHsAppTy m) }
       go (HsForAllTy _ vis ty') | (isVisible, bndrs) <- splitVisBinders vis =
         m { tyHsForAllTy = mAlter env vs isVisible (toA (mAlter env vs (bndrs, ty') f)) (tyHsForAllTy m) }

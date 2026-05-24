@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ghc: ['9.6.7', '9.8.4', '9.12.2']
+        ghc: ['9.6.7', '9.8.4', '9.12.2', '9.14.1']
         os: [ubuntu-latest, macos-latest]
     name: GHC ${{ matrix.ghc }}
     steps:
