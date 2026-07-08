@@ -70,6 +70,15 @@ updateContext c i =
     updExp (OpApp _ _ op _)
       | Fixity source prec dir <- lookupOp op $ ctxtFixityEnv c =
           withPrec c source prec dir i
+    updExp (SectionL _ _ op)
+      | Fixity source prec dir <- lookupOp op $ ctxtFixityEnv c =
+          withPrec c source prec dir i
+    updExp (SectionR _ op _)
+      | Fixity source prec dir <- lookupOp op $ ctxtFixityEnv c =
+          withPrec c source prec dir i
+
+    updExp RecordUpd{}
+      | i == firstChild = withPrec c (SourceText "RecordUpd") 11 InfixN i
     updExp (HsLet _ _ lbs _ _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
 #else
     updType HsAppTy{} = withPrec c (getPrec appPrec) InfixL i
@@ -80,6 +89,15 @@ updateContext c i =
     updExp (OpApp _ _ op _)
       | Fixity prec dir <- lookupOp op $ ctxtFixityEnv c =
           withPrec c prec dir i
+    updExp (SectionL _ _ op)
+      | Fixity prec dir <- lookupOp op $ ctxtFixityEnv c =
+          withPrec c prec dir i
+    updExp (SectionR _ op _)
+      | Fixity prec dir <- lookupOp op $ ctxtFixityEnv c =
+          withPrec c prec dir i
+
+    updExp RecordUpd{}
+      | i == firstChild = withPrec c 11 InfixN i
     updExp (HsLet _ lbs _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
 #endif
     updExp _ = neverParen
