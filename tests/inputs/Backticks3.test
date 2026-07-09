@@ -1,0 +1,45 @@
+# Unfolding a function of arity greater than two used in backtick
+# form.
+-u Backticks3.bar -u Backticks3.quux
+===
+ module Backticks3 where
+
+ main :: IO ()
+ main = do
+-  print $ (1 `bar` 2) 3
++  print $ 1 + 2 * 3
+-  print $ (foo `bar` 2) 4
++  print $ foo + 2 * 4
+-  print $ (foo `bar`) 2 5
++  print $ foo + 2 * 5
+-  print $ (`bar` 2) foo 6
++  print $ foo + 2 * 6
+-  print $ zipWith (foo `bar`) [7] [8]
++  print $ zipWith (\ y z -> foo + y * z) [7] [8]
+-  print $ zipWith (`bar` 2) [foo] [9]
++  print $ zipWith (\ x z -> x + 2 * z) [foo] [9]
+-  print $ map ((foo `bar`) 2) [10]
++  print $ map (\ z -> foo + 2 * z) [10]
+-  print $ map ((`bar` 2) foo) [11]
++  print $ map (\ z -> foo + 2 * z) [11]
+-  print $ map (foo `bar` 2) [12]
++  print $ map (\ z -> foo + 2 * z) [12]
+-  print $ foo `bar` 2 $ 13
++  print $ (\ z -> foo + 2 * z) $ 13
+-  print $ (foo `quux` 2) 3 14
++  print $ foo + 2 * 3 - 14
+-  print $ (foo `quux`) 2 3 15
++  print $ foo + 2 * 3 - 15
+-  print $ (`quux` 2) foo 3 16
++  print $ foo + 2 * 3 - 16
+-  print $ map ((foo `quux` 2) 3) [17]
++  print $ map (\ d -> foo + 2 * 3 - d) [17]
+
+ foo :: Int
+ foo = 100
+
+ bar :: Int -> Int -> Int -> Int
+ bar x y z = x + y * z
+
+ quux :: Int -> Int -> Int -> Int -> Int
+ quux a b c d = a + b * c - d

@@ -13,9 +13,9 @@
 -  print $ foo `bar` [1..10]
 +  print $ foo + sum [1..10]
 -  print $ (foo `bar`) [1..10]
-+  print $ (\ xs -> foo + sum xs) [1..10]
++  print $ foo + sum [1..10]
 -  print $ (`bar` [1..10]) foo
-+  print $ (\ x -> x + sum [1..10]) foo
++  print $ foo + sum [1..10]
  
  foo :: Int
  foo = baz `div` quux 10

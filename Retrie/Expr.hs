@@ -23,6 +23,7 @@ module Retrie.Expr
   , mkLoc
   , mkLocA
   , mkLocatedHsVar
+  , mkParen
   , mkVarPat
   , mkTyVar
   , parenify
@@ -438,18 +439,8 @@ precedence _        _                = Nothing
 parenify
   :: Monad m => Context -> LHsExpr GhcPs -> TransformT m (LHsExpr GhcPs)
 parenify Context{..} le@(L _ e)
-  | needed ctxtParentPrec (precedence ctxtFixityEnv e) && needsParens e = do
-#if __GLASGOW_HASKELL__ < 912
-     let tokLP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
-         tokRP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
-      in mkLocA (getEntryDP le) (HsPar noAnn tokLP (setEntryDP le (SameLine 0)) tokRP)
-#else
-     anc1 <- mkAnchor (SameLine 0)
-     anc2 <- mkAnchor (SameLine 0)
-     let tokLP = EpTok anc1
-         tokRP = EpTok anc2
-     mkParen' (getEntryDP le) (\_ -> HsPar (tokLP, tokRP) (setEntryDP le (SameLine 0)))
-#endif
+  | needed ctxtParentPrec (precedence ctxtFixityEnv e) && needsParens e =
+    mkParen le
   | otherwise = return le
   where
            {- parent -}               {- child -}
@@ -462,6 +453,21 @@ parenify Context{..} le@(L _ e)
     needed NeverParen _ = False
     needed _ Nothing = True
     needed _ _ = False
+
+-- | Wrap in parentheses.
+mkParen :: Monad m => LHsExpr GhcPs -> TransformT m (LHsExpr GhcPs)
+mkParen le = do
+#if __GLASGOW_HASKELL__ < 912
+  let tokLP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
+      tokRP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
+  mkLocA (getEntryDP le) (HsPar noAnn tokLP (setEntryDP le (SameLine 0)) tokRP)
+#else
+  anc1 <- mkAnchor (SameLine 0)
+  anc2 <- mkAnchor (SameLine 0)
+  let tokLP = EpTok anc1
+      tokRP = EpTok anc2
+  mkParen' (getEntryDP le) (\_ -> HsPar (tokLP, tokRP) (setEntryDP le (SameLine 0)))
+#endif
 
 getUnparened :: Data k => k -> k
 getUnparened = mkT unparen `extT` unparenT `extT` unparenP
