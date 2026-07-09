@@ -128,33 +128,49 @@ backtickRules
   -> GRHSs GhcPs (LHsExpr GhcPs)
   -> [LPat GhcPs]
   -> TransformT IO [Rewrite (LHsExpr GhcPs)]
-backtickRules e imps dir@LeftToRight grhss ps@[p1, p2] = do
+backtickRules e imps dir@LeftToRight grhss (p1:p2:rest) = do
   let
-    both, left, right :: AppBuilder
 #if __GLASGOW_HASKELL__ < 912
-    both op [l, r] = mkLocA (SameLine 1) (OpApp noAnn l op r)
+    na = noAnn
 #else
-    both op [l, r] = mkLocA (SameLine 1) (OpApp noExtField l op r)
+    na = noExtField
 #endif
+
+    wrapOpApps op [] = pure op
+    wrapOpApps op extra = do
+      o <- mkParen op
+      mkApps o extra
+
+    both, left, right :: AppBuilder
+    -- A function of arity greater than two used infix supplies its
+    -- first two arguments via the operator and the rest by application.
+    both op (l:r:extra) = do
+      opApp <- mkLocA (SameLine 1) (OpApp na l op r)
+      wrapOpApps opApp extra
     both _ _ = fail "backtickRules - both: impossible!"
 
-#if __GLASGOW_HASKELL__ < 912
-    left op [l] = mkLocA (SameLine 1) (SectionL noAnn l op)
-#else
-    left op [l] = mkLocA (SameLine 1) (SectionL noExtField l op)
-#endif
+    left op (l:extra) = do
+      opSecL <- mkLocA (SameLine 1) (SectionL na l op)
+      wrapOpApps opSecL extra
     left _ _ = fail "backtickRules - left: impossible!"
 
-#if __GLASGOW_HASKELL__ < 912
-    right op [r] = mkLocA (SameLine 1) (SectionR noAnn op r)
-#else
-    right op [r] = mkLocA (SameLine 1) (SectionR noExtField op r)
-#endif
+    right op (r:extra) = do
+      opSecR <- mkLocA (SameLine 1) (SectionR na op r)
+      wrapOpApps opSecR extra
     right _ _ = fail "backtickRules - right: impossible!"
-  qs <- makeFunctionQuery e imps dir grhss both (ps, [])
-  qsl <- makeFunctionQuery e imps dir grhss left ([p1], [p2])
-  qsr <- makeFunctionQuery e imps dir grhss right ([p2], [p1])
-  return $ qs ++ qsl ++ qsr
+
+    splits r = for (zip (inits r) (tails r))
+
+  -- (p1 `op` p2) rest
+  qss <- splits rest $ \(ri, rt) ->
+    makeFunctionQuery e imps dir grhss both (p1 : p2 : ri, rt)
+  -- (p1 `op`) p2 rest
+  qsl <- splits (p2:rest) $ \(ri, rt) ->
+    makeFunctionQuery e imps dir grhss left (p1 : ri, rt)
+  -- (`op` p2) p1 rest
+  qsr <- splits (p1:rest) $ \(ri, rt) ->
+    makeFunctionQuery e imps dir grhss right (p2 : ri, rt)
+  return $ concat qss ++ concat qsl ++ concat qsr
 backtickRules _ _ _ _ _ = return []
 
 -- Note [fold only]
