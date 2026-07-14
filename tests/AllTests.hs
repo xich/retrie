@@ -45,6 +45,12 @@ allTests libdir rtVerbosity = do
       [ TestLabel rtName $ TestCase $ runTest libdir p RetrieTest{..}
       | testFile <- testFiles
       , takeExtension testFile == ".test"
+#if __GLASGOW_HASKELL__ < 908
+      -- The TypeAbstractions pragma is unknown to the GHC 9.6 parser, so
+      -- retrie cannot parse this test's target module there. The pre-9.14
+      -- code path it exercises is still covered by the 9.8/9.12 runs.
+      , testFile /= "TypeAbs.test"
+#endif
       , let
           rtName = dropExtension testFile
           rtTest = testFile
