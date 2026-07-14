@@ -1,0 +1,23 @@
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
+# Regression test for type applications in constructor patterns. On
+# GHC >= 9.14 the type argument is an InvisPat element of the PrefixCon
+# pattern list (older GHCs kept it in a separate tyargs field that retrie
+# ignored). Unfolding baz runs patToExpr over its argument pattern
+# (Just @Int x), which must ignore the type argument rather than crash
+# with 'patToExpr InvisPat'.
+-u TypeAbs.baz
+===
+ {-# LANGUAGE TypeApplications #-}
+ {-# LANGUAGE TypeAbstractions #-}
+ 
+ module TypeAbs where
+ 
+ baz :: Maybe Int -> Int
+ baz (Just @Int x) = x
+ baz Nothing = 0
+ 
+ f :: Int
+-f = baz (Just 1)
++f = 1
