@@ -646,11 +646,7 @@ instance PatternMap MMap where
   mAlter :: AlphaEnv -> Quantifiers -> Key MMap -> A a -> MMap a -> MMap a
   mAlter env vs match f (MMap m) =
     let
-#if __GLASGOW_HASKELL__ < 912
-      lpats = m_pats match
-#else
-      lpats = unLoc (m_pats match)
-#endif
+      lpats = getMatchPats match
       pbs = collectPatsBinders CollNoDictBinders lpats
       env' = foldr extendAlphaEnvInternal env pbs
       vs' = vs `exceptQ` pbs
@@ -660,11 +656,7 @@ instance PatternMap MMap where
   mMatch :: MatchEnv -> Key MMap -> (Substitution, MMap a) -> [(Substitution, a)]
   mMatch env match = mapFor unMMap >=> mMatch env lpats >=> mMatch env' (m_grhss match)
     where
-#if __GLASGOW_HASKELL__ < 912
-      lpats = m_pats match
-#else
-      lpats = unLoc (m_pats match)
-#endif
+      lpats = getMatchPats match
       pbs = collectPatsBinders CollNoDictBinders lpats
       env' = extendMatchEnv env pbs
 

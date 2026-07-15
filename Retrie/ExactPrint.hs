@@ -9,7 +9,8 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE ViewPatterns #-}
-#if __GLASGOW_HASKELL__ >= 912
+#if __GLASGOW_HASKELL__ < 912
+#else
 {-# OPTIONS_GHC -Wno-orphans #-}
 #endif
 -- | Provides consistent interface with ghc-exactprint.
@@ -84,7 +85,8 @@ import Retrie.SYB hiding (ext1)
 
 import GHC.Stack
 
-#if __GLASGOW_HASKELL__ >= 912
+#if __GLASGOW_HASKELL__ < 912
+#else
 import Data.Default
 import Control.Applicative
 
@@ -197,7 +199,10 @@ fixOneEntry e x = do
       -- lift $ liftIO $ debugPrint Loud "fixOneEntry:(dpx,dpe)="  [showAst ((deltaPos er (xc + ec)),(deltaPos xr 0))]
       -- lift $ liftIO $ debugPrint Loud "fixOneEntry:e'="  [showAst e]
       -- lift $ liftIO $ debugPrint Loud "fixOneEntry:e'="  [showAst (setEntryDP e (deltaPos er (xc + ec)))]
-#if __GLASGOW_HASKELL__ >= 912
+#if __GLASGOW_HASKELL__ < 912
+      return ( setEntryDP e (deltaPos er (xc + ec))
+             , setEntryDP x (deltaPos xr 0))
+#else
       -- In GHC 9.12+, setEntryDP applies the delta to the first comment if present,
       -- which can corrupt spacing. Skip adjustment when either e or x has comments
       -- directly attached to them (not in subtree), as setEntryDP will be called
@@ -206,9 +211,6 @@ fixOneEntry e x = do
         then return (e, x)
         else return ( setEntryDP e (deltaPos er (xc + ec))
                     , setEntryDP x (deltaPos xr 0))
-#else
-      return ( setEntryDP e (deltaPos er (xc + ec))
-             , setEntryDP x (deltaPos xr 0))
 #endif
     _ -> return (e,x)
 

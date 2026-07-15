@@ -71,13 +71,6 @@ matchToRewrites e imps dir (L _ alt) = do
   qs <- backtickRules e imps dir grhss pats
   return $ qs ++ concat qss
 
-getMatchPats :: Match GhcPs (LHsExpr GhcPs) -> [LPat GhcPs]
-#if __GLASGOW_HASKELL__ < 912
-getMatchPats = m_pats
-#else
-getMatchPats = unLoc . m_pats
-#endif
-
 type AppBuilder =
   LHsExpr GhcPs -> [LHsExpr GhcPs] -> TransformT IO (LHsExpr GhcPs)
 

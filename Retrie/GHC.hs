@@ -71,6 +71,13 @@ dLPat = Just
 dLPatUnsafe :: LPat (GhcPass p) -> LPat (GhcPass p)
 dLPatUnsafe = id
 
+getMatchPats :: Match GhcPs (LHsExpr GhcPs) -> [LPat GhcPs]
+#if __GLASGOW_HASKELL__ < 912
+getMatchPats = m_pats
+#else
+getMatchPats = unLoc . m_pats
+#endif
+
 rdrFS :: RdrName -> FastString
 rdrFS (Qual m n) = mconcat [moduleNameFS m, fsDot, occNameFS n]
 rdrFS rdr = occNameFS (occName rdr)
