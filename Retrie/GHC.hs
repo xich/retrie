@@ -58,7 +58,8 @@ import Language.Haskell.Syntax.Basic as GHC.Unit.Module.Name
 import GHC.Utils.Outputable (Outputable (ppr))
 
 import Data.Bifunctor (second)
-#if __GLASGOW_HASKELL__ >= 914
+#if __GLASGOW_HASKELL__ < 914
+#else
 import qualified Data.List.NonEmpty as NE
 #endif
 import Data.Maybe
@@ -88,18 +89,18 @@ rdrFS rdr = occNameFS (occName rdr)
 fsDot :: FastString
 fsDot = mkFastString "."
 
-#if __GLASGOW_HASKELL__ >= 914
-varRdrName :: HsExpr p -> Maybe (LIdOccP p)
-#else
+#if __GLASGOW_HASKELL__ < 914
 varRdrName :: HsExpr p -> Maybe (LIdP p)
+#else
+varRdrName :: HsExpr p -> Maybe (LIdOccP p)
 #endif
 varRdrName (HsVar _ n) = Just n
 varRdrName _ = Nothing
 
-#if __GLASGOW_HASKELL__ >= 914
-tyvarRdrName :: HsType p -> Maybe (LIdOccP p)
-#else
+#if __GLASGOW_HASKELL__ < 914
 tyvarRdrName :: HsType p -> Maybe (LIdP p)
+#else
+tyvarRdrName :: HsType p -> Maybe (LIdOccP p)
 #endif
 tyvarRdrName (HsTyVar _ _ n) = Just n
 tyvarRdrName _ = Nothing
@@ -133,10 +134,10 @@ fixityDecls m =
   ]
 
 ruleInfo :: RuleDecl GhcPs -> [RuleInfo]
-#if __GLASGOW_HASKELL__ >= 914
-ruleInfo (HsRule _ (L _ riName) _ (RuleBndrs _ tyBs valBs) riLHS riRHS) =
-#else
+#if __GLASGOW_HASKELL__ < 914
 ruleInfo (HsRule _ (L _ riName) _ tyBs valBs riLHS riRHS) =
+#else
+ruleInfo (HsRule _ (L _ riName) _ (RuleBndrs _ tyBs valBs) riLHS riRHS) =
 #endif
   let
     riQuantifiers =
