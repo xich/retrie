@@ -414,14 +414,14 @@ conPatHelper con (InfixCon x y) =
                          <*> patToExpr x
                          <*> lift (mkLocatedHsVar con)
                          <*> patToExpr y
-#if __GLASGOW_HASKELL__ >= 914
-conPatHelper con (PrefixCon xs) = do
-#else
+#if __GLASGOW_HASKELL__ < 914
 -- TODO(xich): Properly handle tyargs here!
 conPatHelper con (PrefixCon _tyargs xs) = do
+#else
+conPatHelper con (PrefixCon xs) = do
 #endif
   f <- lift $ mkLocatedHsVar con
-  as <- mapM patToExpr xs
+  as <- mapM patToExpr $ dropInvisPats xs
   -- lift $ lift $ liftIO $ debugPrint Loud "conPatHelper:f="  [showAst f]
   lift $ mkApps f as
 conPatHelper _ _ = error "conPatHelper RecCon"

@@ -702,7 +702,7 @@ instance PatternMap CDMap where
   mAlter env vs d f m@CDMap{} = go d
     where
 #if __GLASGOW_HASKELL__ >= 914
-      go (PrefixCon ps) = m { cdPrefixCon = mAlter env vs ps f (cdPrefixCon m) }
+      go (PrefixCon ps) = m { cdPrefixCon = mAlter env vs (dropInvisPats ps) f (cdPrefixCon m) }
 #else
       -- TODO(xich): properly handle tyargs here!
       go (PrefixCon _tyargs ps) = m { cdPrefixCon = mAlter env vs ps f (cdPrefixCon m) }
@@ -717,7 +717,7 @@ instance PatternMap CDMap where
   mMatch env d (hs,m@CDMap{}) = go d (hs,m)
     where
 #if __GLASGOW_HASKELL__ >= 914
-      go (PrefixCon ps) = mapFor cdPrefixCon >=> mMatch env ps
+      go (PrefixCon ps) = mapFor cdPrefixCon >=> mMatch env (dropInvisPats ps)
 #else
       -- TODO(xich): properly handle tyargs here!
       go (PrefixCon _tyargs ps) = mapFor cdPrefixCon >=> mMatch env ps
