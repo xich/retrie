@@ -171,10 +171,10 @@ stripComments (SrcSpanAnn EpAnnNotUsed l) = SrcSpanAnn EpAnnNotUsed l
 stripComments (SrcSpanAnn (EpAnn anc an _) l) = SrcSpanAnn (EpAnn anc an emptyComments) l
 #else
 stripComments :: EpAnn an -> EpAnn an
-#if __GLASGOW_HASKELL__ >= 914
-stripComments e = e { comments = emptyComments }
-#else
+#if __GLASGOW_HASKELL__ < 914
 stripComments = removeCommentsA
+#else
+stripComments e = e { comments = emptyComments }
 #endif
 #endif
 

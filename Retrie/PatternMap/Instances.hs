@@ -411,10 +411,10 @@ instance PatternMap EMap where
       go HsPragE{} = missingSyntax "HsPragE"
       go HsTypedBracket{} = missingSyntax "HsTypedBracket"
       go HsUntypedBracket{} = missingSyntax "HsUntypedBracket"
-#if __GLASGOW_HASKELL__ >= 914
-      go HsHole{} = missingSyntax "HsHole"
-#else
+#if __GLASGOW_HASKELL__ < 914
       go HsUnboundVar{} = missingSyntax "HsUnboundVar"
+#else
+      go HsHole{} = missingSyntax "HsHole"
 #endif
       go HsOverLabel{} = missingSyntax "HsOverLabel"
       go HsAppType{} = missingSyntax "HsAppType"
@@ -680,10 +680,10 @@ emptyCDMapWrapper :: CDMap a
 emptyCDMapWrapper = CDMap mEmpty mEmpty
 
 instance PatternMap CDMap where
-#if __GLASGOW_HASKELL__ >= 914
-  type Key CDMap = HsConDetails (LocatedA (Pat GhcPs)) (HsRecFields GhcPs (LocatedA (Pat GhcPs)))
-#else
+#if __GLASGOW_HASKELL__ < 914
   type Key CDMap = HsConDetails (HsConPatTyArg GhcPs) (LocatedA (Pat GhcPs)) (HsRecFields GhcPs (LocatedA (Pat GhcPs)))
+#else
+  type Key CDMap = HsConDetails (LocatedA (Pat GhcPs)) (HsRecFields GhcPs (LocatedA (Pat GhcPs)))
 #endif
 
   mEmpty :: CDMap a
@@ -701,11 +701,11 @@ instance PatternMap CDMap where
   mAlter env vs d f CDEmpty   = mAlter env vs d f emptyCDMapWrapper
   mAlter env vs d f m@CDMap{} = go d
     where
-#if __GLASGOW_HASKELL__ >= 914
-      go (PrefixCon ps) = m { cdPrefixCon = mAlter env vs (dropInvisPats ps) f (cdPrefixCon m) }
-#else
+#if __GLASGOW_HASKELL__ < 914
       -- TODO(xich): properly handle tyargs here!
       go (PrefixCon _tyargs ps) = m { cdPrefixCon = mAlter env vs ps f (cdPrefixCon m) }
+#else
+      go (PrefixCon ps) = m { cdPrefixCon = mAlter env vs (dropInvisPats ps) f (cdPrefixCon m) }
 #endif
       go (RecCon _) = missingSyntax "RecCon"
       go (InfixCon p1 p2) = m { cdInfixCon = mAlter env vs p1
@@ -716,11 +716,11 @@ instance PatternMap CDMap where
   mMatch _   _ (_ ,CDEmpty)   = []
   mMatch env d (hs,m@CDMap{}) = go d (hs,m)
     where
-#if __GLASGOW_HASKELL__ >= 914
-      go (PrefixCon ps) = mapFor cdPrefixCon >=> mMatch env (dropInvisPats ps)
-#else
+#if __GLASGOW_HASKELL__ < 914
       -- TODO(xich): properly handle tyargs here!
       go (PrefixCon _tyargs ps) = mapFor cdPrefixCon >=> mMatch env ps
+#else
+      go (PrefixCon ps) = mapFor cdPrefixCon >=> mMatch env (dropInvisPats ps)
 #endif
       go (InfixCon p1 p2) = mapFor cdInfixCon >=> mMatch env p1 >=> mMatch env p2
       go _ = const [] -- TODO
