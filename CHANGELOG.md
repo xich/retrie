@@ -1,5 +1,6 @@
 Unreleased
 
+* Support for GHC 9.12
 * Support for GHC 9.8.1
 
 1.2.0.0 (December 12, 2021)

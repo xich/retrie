@@ -34,8 +34,10 @@ hseToGHC :: HSE.Fixity -> (FastString, (FastString, Fixity))
 hseToGHC (HSE.Fixity assoc p nm) =
 #if __GLASGOW_HASKELL__ < 908
   (fs, (fs, Fixity (SourceText nm') p (dir assoc)))
-#else
+#elif __GLASGOW_HASKELL__ < 912
   (fs, (fs, Fixity (SourceText (fsLit nm')) p (dir assoc)))
+#else
+  (fs, (fs, Fixity p (dir assoc)))
 #endif
 
   where

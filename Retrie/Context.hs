@@ -4,6 +4,7 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -18,7 +19,9 @@ import Control.Monad.IO.Class
 import Data.Char (isDigit)
 import Data.Either (partitionEithers)
 import Data.Generics hiding (Fixity)
+#if __GLASGOW_HASKELL__ < 912
 import Data.List
+#endif
 import Data.Maybe
 
 import Retrie.AlphaEnv
@@ -56,23 +59,42 @@ updateContext c i =
     neverParen = c { ctxtParentPrec = NeverParen }
 
     updExp :: HsExpr GhcPs -> Context
+    updType :: HsType GhcPs -> Context
+
+#if __GLASGOW_HASKELL__ < 912
+    updType HsAppTy{} = withPrec c (SourceText "HsAppTy") (getPrec appPrec) InfixL i
+    updType HsFunTy{} = withPrec c (SourceText "HsFunTy") (getPrec funPrec) InfixR (i - 1)
+    updType _ = withPrec c (SourceText "HsType") (getPrec appPrec) InfixN i
+
     updExp HsApp{} = withPrec c (SourceText "HsApp") 10 InfixL i
     updExp (OpApp _ _ op _)
       | Fixity source prec dir <- lookupOp op $ ctxtFixityEnv c =
           withPrec c source prec dir i
     updExp (HsLet _ _ lbs _ _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
-    updExp _ = neverParen
+#else
+    updType HsAppTy{} = withPrec c (getPrec appPrec) InfixL i
+    updType HsFunTy{} = withPrec c (getPrec funPrec) InfixR (i - 1)
+    updType _ = withPrec c (getPrec appPrec) InfixN i
 
-    updType :: HsType GhcPs -> Context
-    updType HsAppTy{} = withPrec c (SourceText "HsAppTy") (getPrec appPrec) InfixL i
-    updType HsFunTy{} = withPrec c (SourceText "HsFunTy") (getPrec funPrec) InfixR (i - 1)
-    updType _ = withPrec c (SourceText "HsType") (getPrec appPrec) InfixN i
+    updExp HsApp{} = withPrec c 10 InfixL i
+    updExp (OpApp _ _ op _)
+      | Fixity prec dir <- lookupOp op $ ctxtFixityEnv c =
+          withPrec c prec dir i
+    updExp (HsLet _ lbs _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
+#endif
+    updExp _ = neverParen
 
     updMatch :: Match GhcPs (LHsExpr GhcPs) -> Context
     updMatch
       | i == 2  -- m_pats field
+#if __GLASGOW_HASKELL__ < 912
       = addInScope c{ctxtParentPrec = IsLhs} . collectPatsBinders CollNoDictBinders . m_pats
       | otherwise = addInScope neverParen . collectPatsBinders CollNoDictBinders . m_pats
+#else
+      = addInScope c{ctxtParentPrec = IsLhs} . collectPatsBinders CollNoDictBinders . unLoc . m_pats
+      | otherwise
+      = addInScope neverParen . collectPatsBinders CollNoDictBinders . unLoc . m_pats
+#endif
       where
 
     updGRHSs :: GRHSs GhcPs (LHsExpr GhcPs) -> Context
@@ -119,10 +141,17 @@ updateContext c i =
 getPrec :: PprPrec -> Int
 getPrec (PprPrec prec) = prec
 
+#if __GLASGOW_HASKELL__ < 912
 withPrec :: Context -> SourceText -> Int -> FixityDirection -> Int -> Context
 withPrec c source prec dir i = c{ ctxtParentPrec = HasPrec fixity }
   where
     fixity = Fixity source prec d
+#else
+withPrec :: Context -> Int -> FixityDirection -> Int -> Context
+withPrec c prec dir i = c{ ctxtParentPrec = HasPrec fixity }
+  where
+    fixity = Fixity prec d
+#endif
     d = case dir of
       InfixL
         | i == firstChild -> InfixL
