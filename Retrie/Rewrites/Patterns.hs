@@ -53,10 +53,10 @@ mkPatRewrite
   :: Direction
   -> AnnotatedImports
   -> LocatedN RdrName
-#if __GLASGOW_HASKELL__ >= 914
-  -> HsConDetails (LocatedN RdrName) [RecordPatSynField GhcPs]
-#else
+#if __GLASGOW_HASKELL__ < 914
   -> HsConDetails Void (LocatedN RdrName) [RecordPatSynField GhcPs]
+#else
+  -> HsConDetails (LocatedN RdrName) [RecordPatSynField GhcPs]
 #endif
   -> LPat GhcPs
   -> TransformT IO (Rewrite (LPat GhcPs))
@@ -83,17 +83,7 @@ mkPatRewrite dir imports patName params rhs = do
       = (L l (ConPat x (setEntryDP nm dp) args))
     setEntryDPTunderConPatIn p _ = p
 
-#if __GLASGOW_HASKELL__ >= 914
-asPat
-  :: Monad m
-  => LocatedN RdrName
-  -> HsConDetails (LocatedN RdrName) [RecordPatSynField GhcPs]
-  -> TransformT m (LPat GhcPs)
-asPat patName params = do
-  params' <- bitraverseHsConDetails mkVarPat convertFields params
-  mkConPatIn patName params'
-  where
-#else
+#if __GLASGOW_HASKELL__ < 914
 asPat
   :: Monad m
   => LocatedN RdrName
@@ -106,6 +96,16 @@ asPat patName params = do
 
     convertTyVars :: (Monad m) => [Void] -> TransformT m [HsConPatTyArg GhcPs]
     convertTyVars _ = return []
+#else
+asPat
+  :: Monad m
+  => LocatedN RdrName
+  -> HsConDetails (LocatedN RdrName) [RecordPatSynField GhcPs]
+  -> TransformT m (LPat GhcPs)
+asPat patName params = do
+  params' <- bitraverseHsConDetails mkVarPat convertFields params
+  mkConPatIn patName params'
+  where
 #endif
 
     convertFields :: (Monad m) => [RecordPatSynField GhcPs]
@@ -138,10 +138,10 @@ mkExpRewrite
   :: Direction
   -> AnnotatedImports
   -> LocatedN RdrName
-#if __GLASGOW_HASKELL__ >= 914
-  -> HsConDetails (LocatedN RdrName) [RecordPatSynField GhcPs]
-#else
+#if __GLASGOW_HASKELL__ < 914
   -> HsConDetails Void (LocatedN RdrName) [RecordPatSynField GhcPs]
+#else
+  -> HsConDetails (LocatedN RdrName) [RecordPatSynField GhcPs]
 #endif
   -> LPat GhcPs
   -> HsPatSynDir GhcPs
@@ -150,10 +150,10 @@ mkExpRewrite dir imports patName params rhs patDir = do
   fe <- mkLocatedHsVar patName
   -- lift $ debugPrint Loud "mkExpRewrite:fe="  [showAst fe]
   let altsFromParams = case params of
-#if __GLASGOW_HASKELL__ >= 914
-        PrefixCon names -> buildMatch names rhs
-#else
+#if __GLASGOW_HASKELL__ < 914
         PrefixCon _tyargs names -> buildMatch names rhs
+#else
+        PrefixCon names -> buildMatch names rhs
 #endif
         InfixCon a1 a2 -> buildMatch [a1, a2] rhs
         RecCon{} -> missingSyntax "RecCon"
