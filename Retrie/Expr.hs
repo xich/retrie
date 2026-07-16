@@ -5,6 +5,7 @@
 -- LICENSE file in the root directory of this source tree.
 --
 {-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TupleSections #-}
@@ -38,10 +39,6 @@ module Retrie.Expr
 
 import Control.Monad
 import Control.Monad.State.Lazy
-#if __GLASGOW_HASKELL__ < 914
-#else
-import qualified Data.List.NonEmpty as NE
-#endif
 
 import Retrie.ExactPrint
 import Retrie.Fixity
@@ -192,15 +189,9 @@ mkLams (p:ps) e = do
     vs' = setEntryDP p (SameLine 1) : ps
     
     L l (Match _ ctxt pats (GRHSs cs grhs binds)) = mkMatch (LamAlt LamSingle) (L (EpaSpan noSrcSpan) vs') e emptyLocalBinds
-#if __GLASGOW_HASKELL__ < 914
     grhs' = case grhs of
       [L lg (GRHS _ guards rhs)] -> [L lg (GRHS anGrhs guards rhs)]
-      _ -> fail "mkLams: lambda expression can only have a single grhs!"
-#else
-    grhs' = case grhs of
-      (L lg (GRHS _ guards rhs) NE.:| []) -> L lg (GRHS anGrhs guards rhs) NE.:| []
       _ -> error "mkLams: lambda expression can only have a single grhs!"
-#endif
   matches <- mkLocA (SameLine 0) [L l (Match noExtField ctxt pats (GRHSs cs grhs' binds))]
   let
     mg = mkMatchGroup (Generated OtherExpansion SkipPmc) matches
