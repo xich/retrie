@@ -110,13 +110,11 @@ tyvarRdrName _ = Nothing
 -- field. Retrie ignores them, as it ignored the tyargs field on older GHCs.
 -- TODO: Handle this case properly.
 dropInvisPats :: [LPat GhcPs] -> [LPat GhcPs]
-dropInvisPats = filter (not . isInvis)
-  where
-#if __GLASGOW_HASKELL__ < 912
+#if __GLASGOW_HASKELL__ < 914
+dropInvisPats = id
 #else
-    isInvis (L _ InvisPat{}) = True
+dropInvisPats = dropHsConPatTyArgs
 #endif
-    isInvis _ = False
 
 grhssList :: GRHSs GhcPs body -> [LGRHS GhcPs body]
 #if __GLASGOW_HASKELL__ < 914
