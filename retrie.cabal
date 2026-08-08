@@ -21,7 +21,6 @@ build-type: Simple
 cabal-version: >=1.10
 extra-source-files:
   CHANGELOG.md
-  CODE_OF_CONDUCT.md
   CONTRIBUTING.md
   README.md
   tests/inputs/*.custom
