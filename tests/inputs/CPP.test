@@ -6,6 +6,7 @@
 #
 --adhoc "forall f g xs. map f (map g xs) = map (f . g) xs"
 -u CPP.otherthing
+-u CPP.baz
 ===
  {-# LANGUAGE CPP #-}
  module CPP where
@@ -60,3 +61,10 @@
 +  Nothing -> 0
  #endif
  #endif
+
+ anns :: IO ()
+-anns = print [baz, pred baz, baz]
++anns = print [succ 4, pred (succ 4), succ 4]
+
+ baz :: Int
+ baz = succ 4
