@@ -34,6 +34,8 @@ module Retrie.ExactPrint
   , swapEntryDPT
   , transferAnnsT
   , transferEntryAnnsT
+  , setTrailingAnns
+  , stripOuterAnns
     -- * Utils
   , debugDump
   , debugParse
@@ -378,7 +380,20 @@ addAllAnnsT a b = do
 addAllAnnsT a b = return $ transferEntryDP a b
 #endif
 
+setTrailingAnns :: [TrailingAnn] -> LocatedA a -> LocatedA a
+#if __GLASGOW_HASKELL__ < 912
+setTrailingAnns [] x@(L (SrcSpanAnn EpAnnNotUsed _) _) = x
+setTrailingAnns ts (L (SrcSpanAnn EpAnnNotUsed l) x) =
+  L (SrcSpanAnn (EpAnn (spanAsAnchor l) (AnnListItem ts) emptyComments) l) x
+setTrailingAnns ts (L (SrcSpanAnn (EpAnn anc _ cs) l) x) =
+  L (SrcSpanAnn (EpAnn anc (AnnListItem ts) cs) l) x
+#else
+setTrailingAnns ts (L (EpAnn anc _ cs) x) = L (EpAnn anc (AnnListItem ts) cs) x
+#endif
 
+-- | Drop anything that prints outside the node's span.
+stripOuterAnns :: LocatedA a -> LocatedA a
+stripOuterAnns (L an x) = L (freshAnn (locA an)) x
 
 isComma :: TrailingAnn -> Bool
 isComma (AddCommaAnn _) = True

@@ -8,21 +8,22 @@
 -u CPP.otherthing
 --adhoc "forall a b. a * b = mul a b"
 --pattern-backward CPP.One
+-u CPP.baz
 ===
  {-# LANGUAGE CPP #-}
  {-# LANGUAGE PatternSynonyms #-}
  module CPP where
- 
+
  #define TRUE 1
 
  infixr 0 $
 
  main :: IO ()
  main = print $ foo (bar [1..10])
- 
+
  foo :: Int -> Int
  foo x = x - 2
- 
+
  #if TRUE
  bar :: [Int] -> Int
  bar ys = length (filter even zs)
@@ -84,3 +85,10 @@
 +  Nothing -> 0
  #endif
  #endif
+
+ anns :: IO ()
+-anns = print [baz, pred baz, baz]
++anns = print [succ 4, pred (succ 4), succ 4]
+
+ baz :: Int
+ baz = succ 4
