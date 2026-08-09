@@ -9,6 +9,9 @@
 -u Parens.quux 
 -u Parens.blarg
 -u Parens.shl1
+-u Parens.neg
+-u Parens.two
+-u Parens.mkR
 --adhoc "forall a. a . id = a"
 --type-forward Parens.Fn
 --type-forward Parens.MaybeInt
@@ -82,6 +85,38 @@
  mixedDirs :: Int
 -mixedDirs = shl1 3 ^ shl1 4
 +mixedDirs = (3 `shiftL` 1) ^ (4 `shiftL` 1)
+ 
+ sectL :: Int -> Int
+-sectL = (foo +)
++sectL = (3 + 4 +)
+ 
+ sectR :: Int -> Int
+-sectR = (+ foo)
++sectR = (+ (3 + 4))
+ 
+ neg :: Int
+ neg = negate $ 1
+ 
+ sectLower :: [Int] -> [Int]
+-sectLower = (neg :)
++sectLower = ((negate $ 1) :)
+ 
+ two :: [Int]
+ two = [1] ++ [2]
+ 
+ sectAssoc :: [Int] -> [Int]
+-sectAssoc = (two ++)
++sectAssoc = (([1] ++ [2]) ++)
+ 
+ -- a record update's head must be atomic
+ data R = R { r1 :: Int, r2 :: Int }
+ 
+ mkR :: R
+ mkR = let x = 1 in R x 2
+ 
+ updR :: R
+-updR = mkR { r2 = 3 }
++updR = (let x = 1 in R x 2) { r2 = 3 }
  
  type Fn a b = a -> b
  type MaybeInt = Maybe Int
