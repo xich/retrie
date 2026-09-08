@@ -4,6 +4,7 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE RecordWildCards #-}
 module Retrie.GHC
   ( module Retrie.GHC
@@ -57,6 +58,10 @@ import Language.Haskell.Syntax.Basic as GHC.Unit.Module.Name
 import GHC.Utils.Outputable (Outputable (ppr))
 
 import Data.Bifunctor (second)
+#if __GLASGOW_HASKELL__ < 914
+#else
+import qualified Data.List.NonEmpty as NE
+#endif
 import Data.Maybe
 
 cLPat :: LPat (GhcPass p) -> LPat (GhcPass p)
@@ -70,6 +75,13 @@ dLPat = Just
 dLPatUnsafe :: LPat (GhcPass p) -> LPat (GhcPass p)
 dLPatUnsafe = id
 
+getMatchPats :: Match GhcPs (LHsExpr GhcPs) -> [LPat GhcPs]
+#if __GLASGOW_HASKELL__ < 912
+getMatchPats = m_pats
+#else
+getMatchPats = unLoc . m_pats
+#endif
+
 rdrFS :: RdrName -> FastString
 rdrFS (Qual m n) = mconcat [moduleNameFS m, fsDot, occNameFS n]
 rdrFS rdr = occNameFS (occName rdr)
@@ -77,13 +89,39 @@ rdrFS rdr = occNameFS (occName rdr)
 fsDot :: FastString
 fsDot = mkFastString "."
 
+#if __GLASGOW_HASKELL__ < 914
 varRdrName :: HsExpr p -> Maybe (LIdP p)
+#else
+varRdrName :: HsExpr p -> Maybe (LIdOccP p)
+#endif
 varRdrName (HsVar _ n) = Just n
 varRdrName _ = Nothing
 
+#if __GLASGOW_HASKELL__ < 914
 tyvarRdrName :: HsType p -> Maybe (LIdP p)
+#else
+tyvarRdrName :: HsType p -> Maybe (LIdOccP p)
+#endif
 tyvarRdrName (HsTyVar _ _ n) = Just n
 tyvarRdrName _ = Nothing
+
+-- | On GHC >= 9.14 constructor-pattern type arguments are invisible
+-- patterns in the PrefixCon argument list rather than a separate tyargs
+-- field. Retrie ignores them, as it ignored the tyargs field on older GHCs.
+-- TODO: Handle this case properly.
+dropInvisPats :: [LPat GhcPs] -> [LPat GhcPs]
+#if __GLASGOW_HASKELL__ < 914
+dropInvisPats = id
+#else
+dropInvisPats = dropHsConPatTyArgs
+#endif
+
+grhssList :: GRHSs GhcPs body -> [LGRHS GhcPs body]
+#if __GLASGOW_HASKELL__ < 914
+grhssList = grhssGRHSs
+#else
+grhssList = NE.toList . grhssGRHSs
+#endif
 
 -- fixityDecls :: HsModule -> [(LIdP p, Fixity)]
 fixityDecls :: HsModule GhcPs -> [(LocatedN RdrName, Fixity)]
@@ -94,7 +132,11 @@ fixityDecls m =
   ]
 
 ruleInfo :: RuleDecl GhcPs -> [RuleInfo]
+#if __GLASGOW_HASKELL__ < 914
 ruleInfo (HsRule _ (L _ riName) _ tyBs valBs riLHS riRHS) =
+#else
+ruleInfo (HsRule _ (L _ riName) _ (RuleBndrs _ tyBs valBs) riLHS riRHS) =
+#endif
   let
     riQuantifiers =
       map unLoc (tyBindersToLocatedRdrNames (fromMaybe [] tyBs)) ++
@@ -110,11 +152,21 @@ ruleBindersToQs bs = catMaybes
   ]
 
 tyBindersToLocatedRdrNames :: [LHsTyVarBndr s GhcPs] -> [LocatedN RdrName]
-tyBindersToLocatedRdrNames vars = catMaybes
-  [ case var of
-      UserTyVar _ _ v -> Just v
-      KindedTyVar _ _ v _ -> Just v
-  | L _ var <- vars ]
+#if __GLASGOW_HASKELL__ < 912
+tyBindersToLocatedRdrNames = map getTyVarLName
+  where
+    getTyVarLName (L _ (UserTyVar _ _ ln)) = ln
+    getTyVarLName (L _ (KindedTyVar _ _ ln _)) = ln
+    getTyVarLName (L _ (XTyVarBndr _)) = error "tyBindersToLocatedRdrNames: XTyVarBndr not supported"
+#else
+-- Note: we can't use 'hsLTyVarNames' here because it throws away the wildcards,
+-- and we _must_ preserve the length of the list. Also can't use some of the
+-- other single-binder variants of hsTyVarLName because they throw away the
+-- location on the RdrName result.
+tyBindersToLocatedRdrNames = map (fromMaybe mkWildcard . hsTyVarLName . unLoc)
+  where
+    mkWildcard = error "tyBindersToLocatedRdrNames: wildcard type binder not supported"
+#endif
 
 data RuleInfo = RuleInfo
   { riName :: RuleName

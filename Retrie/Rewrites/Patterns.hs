@@ -4,6 +4,7 @@
 -- This source code is licensed under the MIT license found in the
 -- LICENSE file in the root directory of this source tree.
 --
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -13,7 +14,9 @@ import Control.Monad.State (StateT(runStateT))
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Maybe
+#if __GLASGOW_HASKELL__ < 914
 import Data.Void
+#endif
 
 import Retrie.ExactPrint
 import Retrie.Expr
@@ -50,7 +53,11 @@ mkPatRewrite
   :: Direction
   -> AnnotatedImports
   -> LocatedN RdrName
+#if __GLASGOW_HASKELL__ < 914
   -> HsConDetails Void (LocatedN RdrName) [RecordPatSynField GhcPs]
+#else
+  -> HsConDetails (LocatedN RdrName) [RecordPatSynField GhcPs]
+#endif
   -> LPat GhcPs
   -> TransformT IO (Rewrite (LPat GhcPs))
 mkPatRewrite dir imports patName params rhs = do
@@ -76,6 +83,7 @@ mkPatRewrite dir imports patName params rhs = do
       = (L l (ConPat x (setEntryDP nm dp) args))
     setEntryDPTunderConPatIn p _ = p
 
+#if __GLASGOW_HASKELL__ < 914
 asPat
   :: Monad m
   => LocatedN RdrName
@@ -88,19 +96,39 @@ asPat patName params = do
 
     convertTyVars :: (Monad m) => [Void] -> TransformT m [HsConPatTyArg GhcPs]
     convertTyVars _ = return []
+#else
+asPat
+  :: Monad m
+  => LocatedN RdrName
+  -> HsConDetails (LocatedN RdrName) [RecordPatSynField GhcPs]
+  -> TransformT m (LPat GhcPs)
+asPat patName params = do
+  params' <- bitraverseHsConDetails mkVarPat convertFields params
+  mkConPatIn patName params'
+  where
+#endif
 
     convertFields :: (Monad m) => [RecordPatSynField GhcPs]
                       -> TransformT m (HsRecFields GhcPs (LPat GhcPs))
     convertFields fields =
+#if __GLASGOW_HASKELL__ < 912
       HsRecFields <$> traverse convertField fields <*> pure Nothing
+#else
+      HsRecFields noExtField <$> traverse convertField fields <*> pure Nothing
+#endif
 
     convertField :: (Monad m) => RecordPatSynField GhcPs
                       -> TransformT m (LHsRecField GhcPs (LPat GhcPs))
     convertField RecordPatSynField{..} = do
+#if __GLASGOW_HASKELL__ < 912
       s <- uniqueSrcSpanT
       an <- mkEpAnn (SameLine 0) NoEpAnns
       let srcspan = SrcSpanAnn an s
           hfbLHS = L srcspan recordPatSynField
+#else
+      an <- mkEpAnn (SameLine 0) noAnn
+      let hfbLHS = L an recordPatSynField
+#endif
       hfbRHS <- mkVarPat recordPatSynPatVar
       let hfbPun = False
           hfbAnn = noAnn
@@ -110,7 +138,11 @@ mkExpRewrite
   :: Direction
   -> AnnotatedImports
   -> LocatedN RdrName
+#if __GLASGOW_HASKELL__ < 914
   -> HsConDetails Void (LocatedN RdrName) [RecordPatSynField GhcPs]
+#else
+  -> HsConDetails (LocatedN RdrName) [RecordPatSynField GhcPs]
+#endif
   -> LPat GhcPs
   -> HsPatSynDir GhcPs
   -> TransformT IO [Rewrite (LHsExpr GhcPs)]
@@ -118,7 +150,11 @@ mkExpRewrite dir imports patName params rhs patDir = do
   fe <- mkLocatedHsVar patName
   -- lift $ debugPrint Loud "mkExpRewrite:fe="  [showAst fe]
   let altsFromParams = case params of
+#if __GLASGOW_HASKELL__ < 914
         PrefixCon _tyargs names -> buildMatch names rhs
+#else
+        PrefixCon names -> buildMatch names rhs
+#endif
         InfixCon a1 a2 -> buildMatch [a1, a2] rhs
         RecCon{} -> missingSyntax "RecCon"
   alts <- case patDir of
@@ -136,5 +172,9 @@ buildMatch names rhs = do
   pats <- traverse mkVarPat names
   let bs = collectPatBinders CollNoDictBinders rhs
   (rhsExpr,(_,_bs')) <- runStateT (patToExpr rhs) (wildSupply bs, bs)
+#if __GLASGOW_HASKELL__ < 912
   let alt = mkMatch PatSyn pats rhsExpr emptyLocalBinds
+#else
+  let alt = mkMatch PatSyn (noLocA pats) rhsExpr emptyLocalBinds
+#endif
   return [alt]
