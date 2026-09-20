@@ -28,7 +28,11 @@ module Retrie.Options
   , GrepCommands(..)
   ) where
 
+import Control.Concurrent
+  (getNumCapabilities, rtsSupportsBoundThreads, setNumCapabilities)
 import Control.Concurrent.Async (mapConcurrently)
+import Control.Concurrent.QSem
+import Control.Exception (bracket_)
 import Control.Monad (when, foldM)
 import Data.Bool
 import Data.Char (isAlphaNum, isSpace)
@@ -105,6 +109,11 @@ data Options_ rewrites imports = Options
     -- ^ Iterate the given rewrites or 'Retrie' computation up to this many
     -- times. Iteration may stop before the limit if no changes are made during
     -- a given iteration.
+  , jobs :: Maybe Int
+    -- ^ Maximum number of target modules to rewrite concurrently. 'Nothing'
+    -- (the default) means one per RTS capability, which is one unless the
+    -- program is run with @+RTS -N@. Specified by the command-line flag '-j'.
+    -- Peak memory use is roughly proportional to this number.
   , noDefaultElaborations :: Bool
     -- ^ Do not apply any of the built in elaborations in 'defaultElaborations'.
   , randomOrder :: Bool
@@ -138,6 +147,7 @@ defaultOptions fp = Options
   , extraIgnores = []
   , fixityEnv = mempty
   , iterateN = 1
+  , jobs = Nothing
   , noDefaultElaborations = False
   , randomOrder = False
   , rewrites = D.def
@@ -209,6 +219,16 @@ buildParser dOpts = do
     , metavar "N"
     , value 1
     , help "Iterate rewrites up to N times."
+    ]
+  jobs <- optional $ option (eitherReader jobsReader) $ mconcat
+    [ long "jobs"
+    , short 'j'
+    , metavar "N"
+    , help $ unwords
+      [ "Rewrite up to N target files concurrently, using N RTS capabilities."
+      , "Defaults to the number of capabilities (1 unless run with +RTS -N)."
+      , "Peak memory use grows with N."
+      ]
     ]
 
   executionMode <- parseMode
@@ -344,6 +364,11 @@ verbosityReader _ =
 verbosityHelp :: String
 verbosityHelp = "0: silent, 1: normal, 2: loud (implies --single-threaded)"
 
+jobsReader :: String -> Either String Int
+jobsReader s = case reads s of
+  [(n, "")] | n >= 1 -> Right n
+  _ -> Left "invalid number of jobs. Must be a positive integer."
+
 -------------------------------------------------------------------------------
 
 -- | Options that have been parsed, but not fully resolved.
@@ -354,6 +379,7 @@ type ProtoOptions = Options_ [RewriteSpec] [String]
 -- declared fixities in the target directory.
 resolveOptions :: LibDir -> ProtoOptions -> IO Options
 resolveOptions libdir protoOpts = do
+  setJobs (jobs protoOpts)
   absoluteTargetDir <- makeAbsolute (targetDir protoOpts)
   opts@Options{..} <-
     addLocalFixities libdir protoOpts { targetDir = absoluteTargetDir }
@@ -393,15 +419,28 @@ addLocalFixities libdir opts = do
 
   return opts { fixityEnv = foldr ($) (fixityEnv opts) fixFns }
 
--- | 'forM', but concurrency and input order controled by 'Options'.
+-- | Set the number of RTS capabilities to the requested number of jobs, so
+-- '-j' parallelizes without also requiring @+RTS -N@. Only possible with the
+-- threaded RTS. Without it, concurrent jobs still interleave on one core,
+-- which costs memory without any speedup.
+setJobs :: Maybe Int -> IO ()
+setJobs (Just n) | rtsSupportsBoundThreads = setNumCapabilities n
+setJobs _ = return ()
+
+-- | 'forM', but concurrency and input order controlled by 'Options'.
+-- At most 'jobs' actions run at once, so peak memory use is bounded by the
+-- number of jobs rather than the number of inputs.
 forFn :: Options_ x y -> [a] -> (a -> IO b) -> IO [b]
 forFn Options{..} c f
-  | randomOrder = fn f =<< shuffleM c
-  | otherwise = fn f c
+  | randomOrder = fn =<< shuffleM c
+  | otherwise = fn c
   where
-    fn
-      | singleThreaded = mapM
-      | otherwise = mapConcurrently
+    fn xs
+      | singleThreaded = mapM f xs
+      | otherwise = do
+          n <- maybe getNumCapabilities return jobs
+          sem <- newQSem (max 1 n)
+          mapConcurrently (bracket_ (waitQSem sem) (signalQSem sem) . f) xs
 
 -- | Find all files to target for rewriting.
 getTargetFiles :: Options_ a b -> [GroundTerms] -> IO [FilePath]

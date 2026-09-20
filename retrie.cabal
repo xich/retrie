@@ -113,7 +113,7 @@ executable retrie
     Main.hs
   hs-source-dirs: bin hse
   other-modules: Fixity
-  GHC-Options: -Wall -Werror
+  GHC-Options: -Wall -Werror -threaded
   build-depends:
     retrie,
     base >= 4.11 && < 4.23,
@@ -130,7 +130,7 @@ executable demo-retrie
     Main.hs
   hs-source-dirs: demo hse
   other-modules: Fixity
-  GHC-Options: -Wall -Werror
+  GHC-Options: -Wall -Werror -threaded
   build-depends:
     retrie,
     base >= 4.11 && < 4.23,
