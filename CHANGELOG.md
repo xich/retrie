@@ -1,5 +1,10 @@
 Unreleased
 
+* Added -j/--jobs flag to bound the number of files rewritten concurrently.
+  Defaults to the number of RTS capabilities, so peak memory use no longer
+  grows with the number of target files (#10)
+* Build the executables with the threaded RTS, so -j (or +RTS -N) actually
+  rewrites files in parallel
 * Support for GHC 9.12
 * Support for GHC 9.8.1
 
