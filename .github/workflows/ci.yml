@@ -20,9 +20,9 @@ jobs:
       matrix:
         ghc: ['9.6.7', '9.8.4', '9.12.2', '9.14.1']
         os: [ubuntu-latest, macos-latest]
-    name: GHC ${{ matrix.ghc }}
+    name: GHC ${{ matrix.ghc }} (${{ matrix.os }})
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
@@ -52,7 +52,7 @@ jobs:
           cabal --version
 
       - name: Cache Cabal Packages
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cabal/packages
