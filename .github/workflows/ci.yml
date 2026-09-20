@@ -51,18 +51,26 @@ jobs:
           ghc --version
           cabal --version
 
-      - name: Cache Cabal Packages
-        uses: actions/cache@v6
-        with:
-          path: |
-            ~/.cabal/packages
-            ~/.cabal/store
-            dist-newstyle
-          key: ${{ runner.os }}-${{ steps.setup.outputs.ghc-version }}-${{ steps.setup.outputs.cabal-version }}-${{ hashFiles('retrie.cabal') }}
-          restore-keys: ${{ runner.os }}-${{ steps.setup.outputs.ghc-version }}-${{ steps.setup.outputs.cabal-version }}-
-
       - name: Run cabal update
         run: cabal update
+
+      - name: Resolve Dependencies
+        # Writes dist-newstyle/cache/plan.json, which is hashed into the
+        # cache key. The key must stay identical to the one in cache.yml.
+        shell: bash
+        run: cabal build --enable-tests --dry-run
+
+      - name: Restore Cabal Store
+        # Read-only: the cache is populated by cache.yml on main. A partial
+        # hit via restore-keys means the build below compiles only the
+        # dependencies that differ from the closest cached plan.
+        uses: actions/cache/restore@v6
+        env:
+          key: ${{ runner.os }}-${{ runner.arch }}-ghc-${{ steps.setup.outputs.ghc-version }}-cabal-${{ steps.setup.outputs.cabal-version }}
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ env.key }}-plan-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+          restore-keys: ${{ env.key }}-
 
       - name: Build
         shell: bash
@@ -80,4 +88,3 @@ jobs:
 #      - uses: mxschmitt/action-tmate@v3
 #        with:
 #            limit-access-to-actor: true
-

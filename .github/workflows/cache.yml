@@ -1,0 +1,69 @@
+name: retrie cache
+
+# Populates the dependency cache that the CI workflow restores from.
+#
+# Caches belong to the ref that saved them, and a PR run can only read
+# caches from its own ref or the default branch. So this runs on main,
+# and the CI workflow only ever restores, never saves.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Never cancel: a run that finishes is a cache that gets saved.
+  cancel-in-progress: false
+
+jobs:
+  populate:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        ghc: ['9.6.7', '9.8.4', '9.12.2', '9.14.1']
+        os: [ubuntu-latest, macos-latest]
+    name: GHC ${{ matrix.ghc }} (${{ matrix.os }})
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup GHC
+        id: setup
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ matrix.ghc }}
+
+      - name: Resolve Dependencies
+        # Writes dist-newstyle/cache/plan.json, which is hashed into the
+        # cache key so the cache refreshes whenever the resolved set of
+        # dependency versions changes, not only when retrie.cabal does.
+        # The key must stay identical to the one in ci.yml.
+        shell: bash
+        run: cabal build --enable-tests --dry-run
+
+      - name: Restore Cabal Store
+        # On a partial hit via restore-keys only the dependencies missing
+        # from the restored store get built below.
+        id: cache
+        uses: actions/cache/restore@v6
+        env:
+          key: ${{ runner.os }}-${{ runner.arch }}-ghc-${{ steps.setup.outputs.ghc-version }}-cabal-${{ steps.setup.outputs.cabal-version }}
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ env.key }}-plan-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+          restore-keys: ${{ env.key }}-
+
+      - name: Build Dependencies
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: cabal build --enable-tests --only-dependencies
+
+      - name: Save Cabal Store
+        # Saving on an exact hit would clash with the existing key.
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ${{ steps.setup.outputs.cabal-store }}
+          key: ${{ steps.cache.outputs.cache-primary-key }}
