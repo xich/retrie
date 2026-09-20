@@ -66,15 +66,15 @@ jobs:
 
       - name: Build
         shell: bash
-        run: cabal build
+        run: cabal build --enable-tests
 
       - name: Haddock
         shell: bash
-        run: cabal haddock
+        run: cabal haddock --enable-tests --disable-documentation
 
       - name: Test
         shell: bash
-        run: cabal test
+        run: cabal test --enable-tests
 
        # For debugging the workflow interactively
 #      - uses: mxschmitt/action-tmate@v3
