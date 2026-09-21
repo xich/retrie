@@ -1,0 +1,76 @@
+# Unfolding a definition with a where clause moves the bindings into a let
+-u WhereBindings.empty
+-u WhereBindings.plain
+-u WhereBindings.sig
+-u WhereBindings.subst
+-u WhereBindings.partial
+-u WhereBindings.comm
+===
+ module WhereBindings where
+
+ -- empty where bindings translate into empty let bindings
+ empty x = x
+   where
+
+-test1 a = empty a
++test1 a = let
++           in a
+
+ -- a single binding
+ plain x = f x
+   where
+     f y = y + 1
+
+-test2 x = plain x
++test2 x = let
++            f y = y + 1
++           in f x
+
+ -- binding with signature
+ sig x = f x
+   where
+     f :: Int -> Int
+     f y = y + 1
+
+-test3 x = sig x
++test3 x = let
++            f :: Int -> Int
++            f y = y + 1
++           in f x
+
+ -- ensure bindings are substituted
+ subst x = y
+   where
+     y = x + 1
+
+-test4 = subst 1
++test4 = let
++          y = 1 + 1
++         in y
+
+ -- check that the let is wrapped with a lambda correctly
+ partial :: Int -> Int
+ partial x = x * two
+   where
+     two = 2
+
+-test5 = map partial [1, 2, 3]
++test5 = map (\ x -> let
++                      two = 2
++                     in x * two) [1, 2, 3]
+
+ -- make sure comments are preserved
+ comm x = f x + h x
+   -- a
+   where
+     f y = y + 1
+     -- b
+     h y = y
+
+-test6 a = comm a
++test6 a = let
++            -- a
++            f y = y + 1
++            -- b
++            h y = y
++           in f a + h a
