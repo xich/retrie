@@ -203,7 +203,7 @@ mkLet :: Monad m => HsLocalBinds GhcPs -> LHsExpr GhcPs -> TransformT m (LHsExpr
 mkLet EmptyLocalBinds{} e = return e
 mkLet lbs e = do
 #if __GLASGOW_HASKELL__ < 912
-  an <- mkEpAnn (DifferentLine 1 5) NoEpAnns
+  an <- mkEpAnn (SameLine 0) NoEpAnns
   let tokLet = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
       tokIn = L (TokenLoc (EpaDelta (DifferentLine 1 1) [])) HsTok
   le <- mkLocA (SameLine 1) $ HsLet an tokLet lbs tokIn e
@@ -214,7 +214,14 @@ mkLet lbs e = do
       tokIn = EpTok inTokLoc
   le <- mkLocA (SameLine 1) $ HsLet (tokLet, tokIn) lbs e
 #endif
-  return le
+  transferBinds le
+
+transferBinds :: Monad m => LHsExpr GhcPs -> TransformT m (LHsExpr GhcPs)
+#if __GLASGOW_HASKELL__ < 912
+transferBinds le = hsDecls le >>= replaceDecls le
+#else
+transferBinds le = return $ replaceDecls le (hsDecls le)
+#endif
 
 mkApps :: MonadIO m => LHsExpr GhcPs -> [LHsExpr GhcPs] -> TransformT m (LHsExpr GhcPs)
 mkApps e []     = return e
