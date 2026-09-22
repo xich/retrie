@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 #
 -u Commas.foo
+--adhoc "forall a b. f [a, b] = g [a, b]"
 ===
  module Commas where
  
@@ -16,3 +17,7 @@
  
  foo :: Int
  foo = succ 4
+
+ test2 :: IO ()
+-test2 = print (f [succ 1, 2])
++test2 = print (g [succ 1, 2])
