@@ -85,11 +85,9 @@ replaceImpl c e = do
       -- copy appropriate annotations from old expression to template
       res <- addAllAnnsT e r'
 
-      -- prune the resulting expression and log it with location
-      orig <- printNoLeadingSpaces <$> pruneA e
-
-      -- build the replacement text without the annotations as 'getLocA'
-      -- doesn't include them in the range
+      -- print both sides without trailing annotations (commas etc), as
+      -- 'getLocA' doesn't include them in the range
+      orig <- printNoLeadingSpaces <$> pruneA (setTrailingAnns [] e)
       repl <- printNoLeadingSpaces <$> pruneA r'
       -- repl <- printA' <$> pruneA r
       -- repl <- printA' <$> pruneA res
