@@ -56,15 +56,12 @@ substExpr ctxt e@(L l1 (HsVar x (L l2 v))) =
       -- lift $ liftIO $ debugPrint Loud "substExpr:HoleExpr:e" [showAst e]
       -- lift $ liftIO $ debugPrint Loud "substExpr:HoleExpr:eA" [showAst eA]
       e0 <- graftA (unparen <$> eA)
-#if __GLASGOW_HASKELL__ < 912
-      e1 <- if hasComments e0 then return e0 else transferEntryDP e e0
-#else
-      e1 <- if hasComments e0 then return e0 else return $ transferEntryDP e e0
-#endif
-      e2 <- transferAnnsT isComma e e1
-      -- let e'' = setEntryDP e' (SameLine 1)
-      -- lift $ liftIO $ debugPrint Loud "substExpr:HoleExpr:e2" [showAst e2]
-      parenify ctxt e2
+      -- copy over the template hole's entry delta and transfer any
+      -- annotations such as trailing commas. we should only ever take the
+      -- trailing annotations from the template, rather than whatever was
+      -- attached to the expression in its previous location.
+      e1 <- transferEntryAnnsT e e0
+      parenify ctxt e1
     Just (HoleRdr rdr) ->
       return $ L l1 $ HsVar x $ L l2 rdr
     _ -> return e
@@ -81,7 +78,7 @@ substPat ctxt (dLPat -> Just p@(L l1 (VarPat x _vl@(L l2 v)))) = fmap cLPat $
       -- lift $ liftIO $ debugPrint Loud "substPat:HolePat:p" [showAst p]
       -- lift $ liftIO $ debugPrint Loud "substPat:HolePat:pA" [showAst pA]
       p' <- graftA (unparenP <$> pA)
-      p0 <- transferEntryAnnsT isComma p p'
+      p0 <- transferEntryAnnsT p p'
       -- the relevant entry delta is sometimes attached to
       -- the OccName and not to the VarPat.
       -- This seems to be the case only when the pattern comes from a lhs,
@@ -104,7 +101,7 @@ substType ctxt ty
     -- lift $ liftIO $ debugPrint Loud "substType:HoleType:ty" [showAst ty]
     -- lift $ liftIO $ debugPrint Loud "substType:HoleType:tyA" [showAst tyA]
     ty' <- graftA (unparenT <$> tyA)
-    ty0 <- transferEntryAnnsT isComma ty ty'
+    ty0 <- transferEntryAnnsT ty ty'
     parenifyT ctxt ty0
 substType _ ty = return ty
 

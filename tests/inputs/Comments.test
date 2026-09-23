@@ -26,9 +26,9 @@
  main2 :: IO ()
  main2 =
 -   swapFunc
-+   newSwapFunc arg2
-      -- note: swap args and update
+-     -- note: swap args and update
 -     arg1 arg2
++   newSwapFunc arg2 -- note: swap args and update
 +     arg1
  
  main3 :: IO ()
