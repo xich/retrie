@@ -145,35 +145,29 @@ fixOneExpr
   => FixityEnv
   -> LHsExpr GhcPs
   -> TransformT m (LHsExpr GhcPs)
-fixOneExpr env (L l2 (OpApp x2 ap1@(L _ (OpApp x1 x op1 y)) op2 z))
+fixOneExpr env (L l2 (OpApp x2 (L _ (OpApp x1 x op1 y)) op2 z))
   | associatesRight (lookupOp op1 env) (lookupOp op2 env) = do
-    let ap2' = L (stripComments l2) $ OpApp x2 y op2 z
-    (_, ap2'_0) <- swapEntryDPT ap1 ap2'
-    rhs <- fixOneExpr env ap2'_0
+    let sp = combineSrcSpans (getLocA y) (getLocA z)
+        ap2' = L (freshAnn sp) $ OpApp x2 y op2 z
+    rhs <- fixOneExpr env ap2'
     return $ L l2 $ OpApp x1 x op1 rhs
 fixOneExpr _ e = return e
 
 fixOnePat :: Monad m => FixityEnv -> LPat GhcPs -> TransformT m (LPat GhcPs)
-fixOnePat env (dLPat -> Just (L l2 (ConPat ext2 op2 (InfixCon (dLPat -> Just ap1@(L _ (ConPat ext1 op1 (InfixCon x y)))) z))))
+fixOnePat env (dLPat -> Just (L l2 (ConPat ext2 op2 (InfixCon (dLPat -> Just (L _ (ConPat ext1 op1 (InfixCon x y)))) z))))
   | associatesRight (lookupOpRdrName op1 env) (lookupOpRdrName op2 env) = do
-    let ap2' = L (stripComments l2) $ ConPat ext2 op2 (InfixCon y z)
-    (_, ap2'_0) <- swapEntryDPT ap1 ap2'
-    rhs <- fixOnePat env ap2'_0
+    let sp = combineSrcSpans (getLocA y) (getLocA z)
+        ap2' = L (freshAnn sp) $ ConPat ext2 op2 (InfixCon y z)
+    rhs <- fixOnePat env ap2'
     return $ L l2 $ ConPat ext1 op1 (InfixCon x rhs)
 fixOnePat _ e = return e
 
--- TODO: move to ghc-exactprint
 #if __GLASGOW_HASKELL__ < 912
-stripComments :: SrcAnn an -> SrcAnn an
-stripComments (SrcSpanAnn EpAnnNotUsed l) = SrcSpanAnn EpAnnNotUsed l
-stripComments (SrcSpanAnn (EpAnn anc an _) l) = SrcSpanAnn (EpAnn anc an emptyComments) l
+freshAnn :: Monoid an => SrcSpan -> SrcAnn an
+freshAnn = noAnnSrcSpanDP0
 #else
-stripComments :: EpAnn an -> EpAnn an
-#if __GLASGOW_HASKELL__ < 914
-stripComments = removeCommentsA
-#else
-stripComments e = e { comments = emptyComments }
-#endif
+freshAnn :: NoAnn an => SrcSpan -> EpAnn an
+freshAnn sp = EpAnn (EpaDelta sp (SameLine 0) []) noAnn emptyComments
 #endif
 
 -- Move leading whitespace from the left child of an operator application
