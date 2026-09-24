@@ -6,8 +6,11 @@
 #
 --adhoc "forall f g xs. map f (map g xs) = map (f . g) xs"
 -u CPP.otherthing
+--adhoc "forall a b. a * b = mul a b"
+--pattern-backward CPP.One
 ===
  {-# LANGUAGE CPP #-}
+ {-# LANGUAGE PatternSynonyms #-}
  module CPP where
  
  #define TRUE 1
@@ -26,6 +29,27 @@
    where
 -    zs = map (+1) (map (*3) ys)
 +    zs = map ((+1) . (*3)) ys
+ #endif
+
+ pattern One :: a -> [a]
+ pattern One y = y : []
+
+ #if TRUE
+ fixityExpr :: Int -> Int -> Int -> Int
+-fixityExpr x y w = x + y * w
++fixityExpr x y w = x + mul y w
+
+ fixityPat :: [Int] -> Int
+-fixityPat (x : y : []) = x
++fixityPat (x : One y) = x
+
+ fixityExpr3 :: (Int -> Int) -> Int -> Int -> Int -> Int
+-fixityExpr3 f p q z = f $ p + q * z
++fixityExpr3 f p q z = f $ p + mul q z
+
+ fixityPat3 :: [Int] -> Int
+-fixityPat3 ( a  :   b    :     c      :       d        :         []) = a
++fixityPat3 ( a  :   b    :     c      :       One d) = a
  #endif
 
  #if TRUE
