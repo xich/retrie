@@ -1,0 +1,26 @@
+# Unfold foo to reprint the whole module. Fixity reassociation rotates
+# x : y : zs and x + y * w. This test ensures the annotations, spacing and
+# comments are untouched.
+-u FixityAnnotations.foo
+===
+ module FixityAnnotations where
+
+ f :: ([Int], Int) -> [Int]
+ f ( x : y : zs, w) = [x + y * w, w]
+
+ b :: ([Int], Int) -> [Int]
+ b ({- a -} x : y : zs {- b -}, w) = [x + y * w, w]
+
+ c :: ([Int], Int) -> [Int]
+ c (x : y : zs
+   , w) = [x + y * w, w]
+
+ g :: [[Int]] -> Int
+ g [x : y : zs, _] = x
+
+ h :: Int
+-h = foo
++h = 1
+
+ foo :: Int
+ foo = 1
