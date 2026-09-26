@@ -62,6 +62,9 @@ updateContext c i =
     updExp :: HsExpr GhcPs -> Context
     updType :: HsType GhcPs -> Context
 
+    updType HsTupleTy{} = neverParen
+    updType HsListTy{} = neverParen
+    updType HsParTy{} = neverParen
 #if __GLASGOW_HASKELL__ < 912
     updType HsAppTy{} = withPrec c (SourceText "HsAppTy") (getPrec appPrec) InfixL i
     updType HsFunTy{} = withPrec c (SourceText "HsFunTy") (getPrec funPrec) InfixR (i - 1)

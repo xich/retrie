@@ -1,0 +1,26 @@
+# Types substituted into tuple, list and paren components must not be
+# parenthesized because the enclosing brackets already delimit them.
+--adhoc-type "T a b = U (a, b)"
+--adhoc-type "L a = M [a]"
+--adhoc-type "P a = Q (a)"
+===
+ module TypeParens where
+
+ data T a b = T a b
+ data U a = U a
+ data L a = L a
+ data M a = M a
+ data P a = P a
+ data Q a = Q a
+
+-tup :: T (Maybe Int) (Int -> Bool)
++tup :: U (Maybe Int, Int -> Bool)
+ tup = T Nothing even
+
+-lst :: L (Int -> Bool)
++lst :: M [Int -> Bool]
+ lst = L even
+
+-par :: P (Maybe Int)
++par :: Q (Maybe Int)
+ par = P Nothing

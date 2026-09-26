@@ -8,12 +8,14 @@
 -l Comments.swap 
 -l Comments.convt 
 -u Comments.oldFunc
+-l Comments.tmpl
 ===
  module Comments where
  
  {-# RULES "old" forall x. oldfunc x = newfunc x #-}
  {-# RULES "swap" forall x y. swapFunc x y = newSwapFunc y x #-}
  {-# RULES "convt" a = alpha #-}
+ {-# RULES "tmpl" forall x. h x = k {- template comment -} x #-}
  
  main1 :: IO ()
  main1 =
@@ -24,9 +26,9 @@
  main2 :: IO ()
  main2 =
 -   swapFunc
-+   newSwapFunc arg2
-      -- note: swap args and update
+-     -- note: swap args and update
 -     arg1 arg2
++   newSwapFunc arg2 -- note: swap args and update
 +     arg1
  
  main3 :: IO ()
@@ -55,3 +57,6 @@
 +  -- more comment
 +    foo
 +  ]
+
+-main5 = h 1
++main5 = k {- template comment -} 1
