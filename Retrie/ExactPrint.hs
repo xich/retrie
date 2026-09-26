@@ -351,21 +351,26 @@ debugDump ax = do
 -- cloneT :: (Data a, Typeable a, Monad m) => a -> TransformT m a
 -- cloneT e = getAnnsT >>= flip graftT e
 
--- The following definitions are all the same as the ones from ghc-exactprint,
--- but the types are liberalized from 'Transform a' to 'TransformT m a'.
 transferEntryAnnsT
   :: (HasCallStack, Data a, Data b, Monad m)
-  => (TrailingAnn -> Bool)  -- transfer Anns matching predicate
-  -> LocatedA a             -- from
+  => LocatedA a             -- from
   -> LocatedA b             -- to
   -> TransformT m (LocatedA b)
-transferEntryAnnsT p a b = do
+transferEntryAnnsT a b =
+  return
+    $ setTrailingAnns (trailingAnns a)
+    $ prependPriorComments (priorCommentsOf a)
+    $ setEntryDelta (getEntryDP a) b
+
+setEntryDelta :: DeltaPos -> LocatedA a -> LocatedA a
 #if __GLASGOW_HASKELL__ < 912
-  b' <- transferEntryDP a b
-#else
-  let b' = transferEntryDP a b
+-- always give the delta to the first prior comment
+setEntryDelta dp (L (SrcSpanAnn (EpAnn anc@(Anchor _ (MovedAnchor _)) an cs) l) x)
+  | (L ca c : rest) <- priorComments cs =
+      let c' = L (Anchor (anchor ca) (MovedAnchor dp)) c
+      in L (SrcSpanAnn (EpAnn anc an (setPriorComments cs (c' : rest))) l) x
 #endif
-  transferAnnsT p a b'
+setEntryDelta dp x = setEntryDP x dp
 
 addAllAnnsT
 #if __GLASGOW_HASKELL__ < 912
@@ -389,6 +394,32 @@ setTrailingAnns ts (L (SrcSpanAnn (EpAnn anc _ cs) l) x) =
   L (SrcSpanAnn (EpAnn anc (AnnListItem ts) cs) l) x
 #else
 setTrailingAnns ts (L (EpAnn anc _ cs) x) = L (EpAnn anc (AnnListItem ts) cs) x
+#endif
+
+trailingAnns :: LocatedA a -> [TrailingAnn]
+#if __GLASGOW_HASKELL__ < 912
+trailingAnns (L (SrcSpanAnn (EpAnn _ (AnnListItem ts) _) _) _) = ts
+trailingAnns _ = []
+#else
+trailingAnns (L (EpAnn _ (AnnListItem ts) _) _) = ts
+#endif
+
+priorCommentsOf :: LocatedA a -> [LEpaComment]
+#if __GLASGOW_HASKELL__ < 912
+priorCommentsOf (L (SrcSpanAnn EpAnnNotUsed _) _) = []
+priorCommentsOf (L (SrcSpanAnn (EpAnn _ _ cs) _) _) = priorComments cs
+#else
+priorCommentsOf (L (EpAnn _ _ cs) _) = priorComments cs
+#endif
+
+prependPriorComments :: [LEpaComment] -> LocatedA a -> LocatedA a
+prependPriorComments [] x = x
+#if __GLASGOW_HASKELL__ < 912
+prependPriorComments new (L l x) =
+  L (setCommentsSrcAnn l (EpaComments new <> epAnnComments (ann l))) x
+#else
+prependPriorComments new (L l x) =
+  L (setCommentsEpAnn l (EpaComments new <> epAnnComments l)) x
 #endif
 
 -- | Drop anything that prints outside the node's span.
