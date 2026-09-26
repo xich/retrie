@@ -6,6 +6,7 @@
 #
 --type-forward Types2.Foo
 --type-forward Types2.MyMaybe
+--type-forward Types2.Pair
 ===
  module Types2 where
  
@@ -21,7 +22,12 @@
 +blech2 :: Maybe Bar
  blech2 = blech
  
+-blech3 :: Pair (Maybe Bar)
++blech3 :: (Maybe Bar, Maybe Bar)
+ blech3 = (blech2, blech2)
+ 
  type Foo = Either String Bar
  type Bar = Int
  
  type MyMaybe a = Maybe a
+ type Pair a = (a, a)
