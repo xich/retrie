@@ -35,6 +35,7 @@ module Retrie.ExactPrint
   , transferAnnsT
   , transferEntryAnnsT
   , setTrailingAnns
+  , trailingAnns
   , stripOuterAnns
     -- * Utils
   , debugDump
