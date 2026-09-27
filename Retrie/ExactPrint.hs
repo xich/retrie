@@ -367,6 +367,7 @@ transferEntryAnnsT
 transferEntryAnnsT a b =
   return
     $ setTrailingAnns (trailingAnns a)
+    $ pinPriorComments
     $ prependPriorComments (priorCommentsOf a)
     $ setEntryDelta (getEntryDP a) b
 
@@ -429,6 +430,18 @@ prependPriorComments new (L l x) =
 prependPriorComments new (L l x) =
   L (setCommentsEpAnn l (EpaComments new <> epAnnComments l)) x
 #endif
+
+pinPriorComments :: LocatedA a -> LocatedA a
+#if __GLASGOW_HASKELL__ < 912
+-- exactprint sorts prior comments by span and holds back any that
+-- start after the node's anchor, pin them to the nodes anchor so order is
+-- consistent across versions.
+pinPriorComments (L (SrcSpanAnn (EpAnn anc an cs) l) x) =
+  L (SrcSpanAnn (EpAnn anc an (setPriorComments cs (map pin (priorComments cs)))) l) x
+  where
+    pin (L (Anchor _ op) c) = L (Anchor (anchor anc) op) c
+#endif
+pinPriorComments x = x
 
 -- | Drop anything that prints outside the node's span.
 stripOuterAnns :: LocatedA a -> LocatedA a
