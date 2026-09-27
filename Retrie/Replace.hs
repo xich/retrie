@@ -81,7 +81,7 @@ replaceImpl c e = do
       -- substitute for quantifiers in grafted template
       r <- subst sub c t'
       -- copy appropriate annotations from old expression to template
-      r0 <- addAllAnnsT e r
+      r0 <- transferEntryAnnsT e r
       -- add parens to template if needed
       res <- (mkM (parenify c) `extM` parenifyT c `extM` parenifyP c) r0
 
