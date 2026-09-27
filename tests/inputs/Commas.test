@@ -6,6 +6,8 @@
 #
 -u Commas.foo
 --adhoc "forall a b. f [a, b] = g [a, b]"
+--adhoc "forall a b. h [a, b] = k a b"
+--type-backward Commas.Pair
 ===
  module Commas where
  
@@ -21,3 +23,22 @@
  test2 :: IO ()
 -test2 = print (f [succ 1, 2])
 +test2 = print (g [succ 1, 2])
+ 
+ test3 :: IO ()
+-test3 = print (h [succ 1, 2])
++test3 = print (k (succ 1) 2)
+
+ type Pair a = (a, a)
+
+-test4 :: (Maybe Int, Maybe Int)
++test4 :: Pair (Maybe Int)
+ test4 = (Nothing, Nothing)
+
+ test5 :: IO ()
+-test5 = print (h [succ 1 {- t -}, 2])
++test5 = print (k (succ 1) 2)
+
+ test6 :: IO ()
+-test6 = print (h [ succ 1
+-                 , 2 ])
++test6 = print (k (succ 1) 2)
