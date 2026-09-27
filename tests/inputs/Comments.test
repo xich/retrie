@@ -9,6 +9,7 @@
 -l Comments.convt 
 -u Comments.oldFunc
 -l Comments.tmpl
+-u Comments.idFunc
 ===
  module Comments where
  
@@ -60,3 +61,21 @@
 
 -main5 = h 1
 +main5 = k {- template comment -} 1
+
+ idFunc x = x
+
+-main6 = idFunc -- note
++main6 = -- note
+   1
+
+-main7 = idFunc {- c -} 2
++main7 = {- c -} 2
+
+-main8 = [3, {- d -} idFunc 4, 5]
++main8 = [3, {- d -} 4, 5]
+
+ main9 = [6,
+   -- e
+-  idFunc -- f
++  -- f
+     7]
