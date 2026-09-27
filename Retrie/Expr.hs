@@ -552,7 +552,7 @@ parenifyP Context{..} p@(L _ pat)
     anc2 <- mkAnchor (SameLine 0)
     let tokLP = EpTok anc1
         tokRP = EpTok anc2
-    mkParen' (getEntryDP p) (\_ -> ParPat (tokLP, tokRP) p)
+    mkParen' (getEntryDP p) (\_ -> ParPat (tokLP, tokRP) (setEntryDP p (SameLine 0)))
   | otherwise = return p
 #endif
   where
