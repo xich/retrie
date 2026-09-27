@@ -85,10 +85,10 @@ replaceImpl c e = do
       -- add parens to template if needed
       res <- (mkM (parenify c) `extM` parenifyT c `extM` parenifyP c) r0
 
-      -- prune the resulting expression and log it with location
-      orig <- printNoLeadingSpaces <$> pruneA e
-
-      repl <- printNoLeadingSpaces <$> pruneA res
+      -- print both sides without trailing annotations and comments, as
+      -- 'getLocA' doesn't include them in the range
+      orig <- printNoLeadingSpaces <$> pruneA (stripOuterAnns e)
+      repl <- printNoLeadingSpaces <$> pruneA (stripOuterAnns res)
       -- repl <- printA' <$> pruneA r
       -- repl <- printA' <$> pruneA res
       -- repl <- return $ showAst t'

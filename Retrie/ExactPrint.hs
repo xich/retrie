@@ -35,6 +35,7 @@ module Retrie.ExactPrint
   , transferAnnsT
   , transferEntryAnnsT
   , setTrailingAnns
+  , stripOuterAnns
     -- * Utils
   , debugDump
   , debugParse
@@ -397,6 +398,10 @@ setTrailingAnns ts (L (SrcSpanAnn (EpAnn anc _ cs) l) x) =
 #else
 setTrailingAnns ts (L (EpAnn anc _ cs) x) = L (EpAnn anc (AnnListItem ts) cs) x
 #endif
+
+-- | Drop anything that prints outside the node's span.
+stripOuterAnns :: LocatedA a -> LocatedA a
+stripOuterAnns (L an x) = setTrailingAnns [] (L (stripComments an) x)
 
 isComma :: TrailingAnn -> Bool
 isComma (AddCommaAnn _) = True
