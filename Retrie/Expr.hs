@@ -464,17 +464,19 @@ parenify Context{..} le@(L _ e)
 -- | Wrap in parentheses.
 mkParen :: Monad m => LHsExpr GhcPs -> TransformT m (LHsExpr GhcPs)
 mkParen le = do
+  let inner = setTrailingAnns [] (setEntryDP le (SameLine 0))
 #if __GLASGOW_HASKELL__ < 912
   let tokLP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
       tokRP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
-  mkLocA (getEntryDP le) (HsPar noAnn tokLP (setEntryDP le (SameLine 0)) tokRP)
+  p <- mkLocA (getEntryDP le) (HsPar noAnn tokLP inner tokRP)
 #else
   anc1 <- mkAnchor (SameLine 0)
   anc2 <- mkAnchor (SameLine 0)
   let tokLP = EpTok anc1
       tokRP = EpTok anc2
-  mkParen' (getEntryDP le) (\_ -> HsPar (tokLP, tokRP) (setEntryDP le (SameLine 0)))
+  p <- mkParen' (getEntryDP le) (\_ -> HsPar (tokLP, tokRP) inner)
 #endif
+  transferAnnsT (const True) le p
 
 getUnparened :: Data k => k -> k
 getUnparened = mkT unparen `extT` unparenT `extT` unparenP
@@ -576,8 +578,9 @@ parenifyT
   :: Monad m => Context -> LHsType GhcPs -> TransformT m (LHsType GhcPs)
 #if __GLASGOW_HASKELL__ < 912
 parenifyT Context{..} lty@(L _ ty)
-  | needed ty =
-      mkParenTy (getEntryDP lty) (\an -> HsParTy an (setEntryDP lty (SameLine 0)))
+  | needed ty = do
+      p <- mkParenTy (getEntryDP lty) (\an -> HsParTy an inner)
+      transferAnnsT (const True) lty p
   | otherwise = return lty
   where
     needed t = case ctxtParentPrec of
@@ -592,7 +595,8 @@ parenifyT Context{..} lty@(L _ ty)
       anc2 <- mkAnchor (SameLine 0)
       let tokLP = EpTok anc1
           tokRP = EpTok anc2
-      mkParenTy (getEntryDP lty) (\_ -> HsParTy (tokLP, tokRP) (setEntryDP lty (SameLine 0)))
+      p <- mkParenTy (getEntryDP lty) (\_ -> HsParTy (tokLP, tokRP) inner)
+      transferAnnsT (const True) lty p
   | otherwise = return lty
   where
     needed t = case ctxtParentPrec of
@@ -601,6 +605,7 @@ parenifyT Context{..} lty@(L _ ty)
       IsLhs -> False
       NeverParen -> False
 #endif
+    inner = setTrailingAnns [] (setEntryDP lty (SameLine 0))
 
 unparenT :: LHsType GhcPs -> LHsType GhcPs
 unparenT (L _ (HsParTy _ ty)) = ty
