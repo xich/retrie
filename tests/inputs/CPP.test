@@ -9,6 +9,7 @@
 --adhoc "forall a b. a * b = mul a b"
 --pattern-backward CPP.One
 -u CPP.baz
+-u CPP.baz2
 ===
  {-# LANGUAGE CPP #-}
  {-# LANGUAGE PatternSynonyms #-}
@@ -92,3 +93,12 @@
 
  baz :: Int
  baz = succ 4
+
+ baz2 :: Int
+ baz2 =
+   -- one
+   1
+
+-comment = baz2
++comment = -- one
++  1
