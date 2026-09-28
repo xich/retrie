@@ -541,10 +541,11 @@ parenifyP
 #if __GLASGOW_HASKELL__ < 912
 parenifyP Context{..} p@(L _ pat)
   | IsLhs <- ctxtParentPrec
-  , needed pat =
+  , needed pat = do
     let tokLP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
         tokRP = L (TokenLoc (EpaDelta (SameLine 0) [])) HsTok
-     in mkLocA (getEntryDP p) (ParPat noAnn tokLP (setEntryDP p (SameLine 0)) tokRP)
+    pe <- mkLocA (getEntryDP p) (ParPat noAnn tokLP inner tokRP)
+    transferAnnsT (const True) p pe
   | otherwise = return p
 #else
 parenifyP Context{..} p@(L _ pat)
@@ -554,7 +555,8 @@ parenifyP Context{..} p@(L _ pat)
     anc2 <- mkAnchor (SameLine 0)
     let tokLP = EpTok anc1
         tokRP = EpTok anc2
-    mkParen' (getEntryDP p) (\_ -> ParPat (tokLP, tokRP) (setEntryDP p (SameLine 0)))
+    pe <- mkParen' (getEntryDP p) (\_ -> ParPat (tokLP, tokRP) inner)
+    transferAnnsT (const True) p pe
   | otherwise = return p
 #endif
   where
@@ -573,6 +575,7 @@ parenifyP Context{..} p@(L _ pat)
     needed (ConPat _ _ (PrefixCon []))        = False
 #endif
     needed _                                  = True
+    inner = setTrailingAnns [] (setEntryDP p (SameLine 0))
 
 parenifyT
   :: Monad m => Context -> LHsType GhcPs -> TransformT m (LHsType GhcPs)
