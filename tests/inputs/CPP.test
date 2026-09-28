@@ -7,6 +7,7 @@
 --adhoc "forall f g xs. map f (map g xs) = map (f . g) xs"
 -u CPP.otherthing
 -u CPP.baz
+-u CPP.baz2
 ===
  {-# LANGUAGE CPP #-}
  module CPP where
@@ -68,3 +69,12 @@
 
  baz :: Int
  baz = succ 4
+
+ baz2 :: Int
+ baz2 =
+   -- one
+   1
+
+-comment = baz2
++comment = -- one
++  1
