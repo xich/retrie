@@ -16,6 +16,7 @@
 --type-forward Parens.Fn
 --type-forward Parens.MaybeInt
 ===
+ {-# LANGUAGE OverloadedRecordDot #-}
  module Parens where
  
  import Data.Bits
@@ -117,7 +118,21 @@
  updR :: R
 -updR = mkR { r2 = 3 }
 +updR = (let x = 1 in R x 2) { r2 = 3 }
- 
+
+ -- a projection's head must be atomic
+ proj :: Int
+-proj = mkR.r1
++proj = (let x = 1 in R x 2).r1
+
+ -- prefix minus binds like an infix-6 operator
+ negFoo :: Int
+-negFoo = - foo
++negFoo = - (3 + 4)
+
+ negBar :: Int
+-negBar = - bar
++negBar = - 5 `quot` foo
+
  type Fn a b = a -> b
  type MaybeInt = Maybe Int
  
