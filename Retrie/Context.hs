@@ -74,6 +74,8 @@ updateContext c i =
     updExp HsApp{} = withPrec c (SourceText "HsApp") 10 InfixL i
     updExp RecordUpd{}
       | i == firstChild = withPrec c (SourceText "RecordUpd") 11 InfixN i
+    updExp HsGetField{}
+      | i == firstChild = withPrec c (SourceText "HsGetField") 11 InfixN i
     updExp NegApp{} = withPrec c (SourceText "NegApp") 6 InfixN i
     updExp (HsLet _ _ lbs _ _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
 #else
@@ -87,6 +89,8 @@ updateContext c i =
 
     updExp HsApp{} = withPrec c 10 InfixL i
     updExp RecordUpd{}
+      | i == firstChild = withPrec c 11 InfixN i
+    updExp HsGetField{}
       | i == firstChild = withPrec c 11 InfixN i
     updExp NegApp{} = withPrec c 6 InfixN i
     updExp (HsLet _ lbs _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
