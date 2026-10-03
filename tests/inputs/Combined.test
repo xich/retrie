@@ -66,20 +66,20 @@
  blerg :: Int
 -blerg = blarg 42
 +blerg = (case 54 of
-+    0 -> pred
-+    _ -> succ) 42
++          0 -> pred
++          _ -> succ) 42
  
  jank :: IO (Int -> Int)
 -jank = return blarg
 +jank = return (case 54 of
-+    0 -> pred
-+    _ -> succ)
++                0 -> pred
++                _ -> succ)
  
  jenk :: IO Int
 -jenk = return $ blarg 42
 +jenk = return $ (case 54 of
-+    0 -> pred
-+    _ -> succ) 42
++                  0 -> pred
++                  _ -> succ) 42
 
  mneh :: Bool
 -mneh = 3 == 2

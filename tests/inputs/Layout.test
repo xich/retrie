@@ -1,0 +1,33 @@
+# Copyright (c) 2025 Andrew Farmer
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
+# Non-CPP counterpart of CPPLayout.test (issue #24): exactprint path.
+-u Layout.foo
+-u Layout.baz
+===
+ module Layout where
+
+ foo :: Int
+ foo =
+   succ
+     1
+
+ bar :: Int
+ bar = x
+   where
+-    x = foo
++    x = succ
++        1
+
+ baz :: IO ()
+ baz = do print 1
+          print 2
+
+ qux :: IO ()
+ qux = x
+   where
+-    x = baz
++    x = do print 1
++           print 2

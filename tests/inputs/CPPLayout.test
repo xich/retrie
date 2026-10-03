@@ -1,0 +1,39 @@
+# Copyright (c) 2025 Andrew Farmer
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
+#
+# https://github.com/xich/retrie/issues/24
+# A multi-line replacement spliced in as text (CPP module) must have its
+# continuation lines re-indented relative to the destination column, not
+# the column of the template in its original definition.
+-u CPPLayout.foo
+-u CPPLayout.baz
+===
+ {-# LANGUAGE CPP #-}
+ module CPPLayout where
+
+ #define KEEP 1
+
+ foo :: Int
+ foo =
+   succ
+     1
+
+ bar :: Int
+ bar = x
+   where
+-    x = foo
++    x = succ
++          1
+
+ baz :: IO ()
+ baz = do print 1
+          print 2
+
+ qux :: IO ()
+ qux = x
+   where
+-    x = baz
++    x = do print 1
++           print 2
