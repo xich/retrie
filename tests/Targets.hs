@@ -28,7 +28,7 @@ targetedWithGroundTerms =
     where
       gts = [HashSet.fromList ["Groundterm"]]
       targetFps = retrieTargetFiles
-      -- 'withFakeHgRepo' creates every file with its own name as the contents
+      -- 'withFakeGitRepo' creates every file with its own name as the contents
       expectedFps = ["targeted" </> "Groundterm.hs"]
 
 assertFileListEqual
@@ -37,7 +37,7 @@ assertFileListEqual
   -> [FilePath]
   -> Assertion
 assertFileListEqual expected gts targetFps =
-  withFakeHgRepo [] allFiles $ \dir -> do
+  withFakeGitRepo [] allFiles $ \dir -> do
     let opts = optionsWithTargetFiles dir targetFps
     filepaths <- getTargetFiles opts gts
     assertPermutationOf "Targeted files should be all of those specified"
