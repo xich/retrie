@@ -183,7 +183,6 @@ test-suite test
     process,
     syb,
     tasty,
-    tasty-hunit,
     temporary,
     text,
     unordered-containers

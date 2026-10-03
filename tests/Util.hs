@@ -6,8 +6,10 @@
 --
 module Util where
 
+import Control.Exception
 import Control.Monad
-import System.Directory (createDirectoryIfMissing)
+import System.Directory (createDirectoryIfMissing, findExecutable)
+import System.Environment (lookupEnv)
 import System.Exit
 import System.FilePath
 import System.IO.Temp
@@ -40,7 +42,8 @@ withFakeRepoCmds initCmd ignoreFile ignoredFiles allFiles f =
       writeFile filePath fp
 
 withFakeHgRepo :: [FilePath] -> [FilePath] -> (FilePath -> IO ()) -> IO ()
-withFakeHgRepo ignoredFiles allFiles f =
+withFakeHgRepo ignoredFiles allFiles f = do
+  requireExecutable "hg"
   withFakeRepoCmds "hg init" ".hgignore" ignoredFiles allFiles $ \dir -> do
     -- Tell 'hg' which ignore file to use for the repo, because Facebook's
     -- 'hg' looks at .gitignore by default.
@@ -51,7 +54,27 @@ withFakeHgRepo ignoredFiles allFiles f =
     f dir
 
 withFakeGitRepo :: [FilePath] -> [FilePath] -> (FilePath -> IO ()) -> IO ()
-withFakeGitRepo = withFakeRepoCmds "git init" ".gitignore"
+withFakeGitRepo ignoredFiles allFiles f = do
+  requireExecutable "git"
+  withFakeRepoCmds "git init" ".gitignore" ignoredFiles allFiles f
+
+-- | Thrown to mark a test as skipped rather than failed. See 'toTasty' in Main.
+newtype SkipTest = SkipTest String
+  deriving Show
+
+instance Exception SkipTest
+
+-- | Skip the test if the given executable is not on the PATH. On CI (where the
+-- CI environment variable is set) every executable should be installed, so
+-- fail instead.
+requireExecutable :: String -> IO ()
+requireExecutable exe = do
+  found <- findExecutable exe
+  onCI <- maybe False (not . null) <$> lookupEnv "CI"
+  when (null found) $
+    if onCI
+      then assertFailure $ exe ++ " is not installed, but is required on CI"
+      else throwIO $ SkipTest $ exe ++ " is not installed"
 
 doOrDie :: FilePath -> String -> IO ()
 doOrDie dir cmd = do
