@@ -75,15 +75,15 @@
  useit :: Int
 -useit = otherthing (Just 54)
 +useit = case Just 54 of
-+  Just{} -> 1
-+  Nothing -> 0
++         Just{} -> 1
++         Nothing -> 0
 
  #if TRUE
  useit2 :: Int
 -useit2 = otherthing (Just 42)
 +useit2 = case Just 42 of
-+  Just{} -> 1
-+  Nothing -> 0
++          Just{} -> 1
++          Nothing -> 0
  #endif
  #endif
 
@@ -101,4 +101,4 @@
 
 -comment = baz2
 +comment = -- one
-+  1
++          1

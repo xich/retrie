@@ -17,6 +17,7 @@ module Retrie.Replace
 import Control.Monad.Trans.Class
 import Control.Monad.Writer.Strict
 import Data.Char (isSpace)
+import Data.List (intercalate, isSuffixOf)
 import Data.Generics
 
 import Retrie.ExactPrint
@@ -89,7 +90,7 @@ replaceImpl c e = do
       -- them from the original. print the template without its trailing
       -- anns
       orig <- printNoLeadingSpaces <$> pruneA (stripOuterAnns e)
-      repl <- printNoLeadingSpaces <$> pruneA r'
+      repl <- reindentAt (getLocA e) <$> pruneA r'
       -- repl <- printA' <$> pruneA r
       -- repl <- printA' <$> pruneA res
       -- repl <- return $ showAst t'
@@ -140,3 +141,21 @@ instance Monoid Change where
 -- drop leading spaces like this.
 printNoLeadingSpaces :: (Data k, ExactPrint k) => Annotated k -> String
 printNoLeadingSpaces = dropWhile isSpace . printA
+
+-- | Print a replacement that will be spliced in as text starting at the given
+-- location. Continuation lines are shifted by however far the first token
+-- moves, so they keep their position relative to it (and thus any layout
+-- blocks opened on the first line stay aligned).
+reindentAt :: (Data k, ExactPrint k) => SrcSpan -> Annotated k -> String
+reindentAt loc a = case (lines rest, srcSpanStartCol <$> getRealSpan loc) of
+  (l:ls, Just c1) | shift <- c1 - s, shift /= 0 ->
+    intercalate "\n" (l : map (reindent shift) ls) ++ trailingNl
+  _ -> rest
+  where
+    (lead, rest) = span isSpace (printA a)
+    s = 1 + length (takeWhile (/= '\n') (reverse lead))
+    trailingNl = if "\n" `isSuffixOf` rest then "\n" else ""
+    reindent n ln
+      | all isSpace ln = ln
+      | n > 0 = replicate n ' ' ++ ln
+      | otherwise = drop (min (negate n) (length (takeWhile (== ' ') ln))) ln
