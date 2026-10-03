@@ -58,6 +58,7 @@ updateContext c i =
   where
     neverParen = c { ctxtParentPrec = NeverParen }
 
+    withOpPrec :: LHsExpr GhcPs -> Context
     updExp :: HsExpr GhcPs -> Context
     updType :: HsType GhcPs -> Context
 
@@ -66,22 +67,37 @@ updateContext c i =
     updType HsFunTy{} = withPrec c (SourceText "HsFunTy") (getPrec funPrec) InfixR (i - 1)
     updType _ = withPrec c (SourceText "HsType") (getPrec appPrec) InfixN i
 
-    updExp HsApp{} = withPrec c (SourceText "HsApp") 10 InfixL i
-    updExp (OpApp _ _ op _)
+    withOpPrec op
       | Fixity source prec dir <- lookupOp op $ ctxtFixityEnv c =
-          withPrec c source prec dir i
+        withPrec c source prec dir i
+
+    updExp HsApp{} = withPrec c (SourceText "HsApp") 10 InfixL i
+    updExp RecordUpd{}
+      | i == firstChild = withPrec c (SourceText "RecordUpd") 11 InfixN i
+    updExp HsGetField{}
+      | i == firstChild = withPrec c (SourceText "HsGetField") 11 InfixN i
+    updExp NegApp{} = withPrec c (SourceText "NegApp") 6 InfixN i
     updExp (HsLet _ _ lbs _ _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
 #else
     updType HsAppTy{} = withPrec c (getPrec appPrec) InfixL i
     updType HsFunTy{} = withPrec c (getPrec funPrec) InfixR (i - 1)
     updType _ = withPrec c (getPrec appPrec) InfixN i
 
-    updExp HsApp{} = withPrec c 10 InfixL i
-    updExp (OpApp _ _ op _)
+    withOpPrec op
       | Fixity prec dir <- lookupOp op $ ctxtFixityEnv c =
-          withPrec c prec dir i
+        withPrec c prec dir i
+
+    updExp HsApp{} = withPrec c 10 InfixL i
+    updExp RecordUpd{}
+      | i == firstChild = withPrec c 11 InfixN i
+    updExp HsGetField{}
+      | i == firstChild = withPrec c 11 InfixN i
+    updExp NegApp{} = withPrec c 6 InfixN i
     updExp (HsLet _ lbs _) = addInScope neverParen $ collectLocalBinders CollNoDictBinders lbs
 #endif
+    updExp (OpApp _ _ op _) = withOpPrec op
+    updExp (SectionL _ _ op) = withOpPrec op
+    updExp (SectionR _ op _) = withOpPrec op
     updExp _ = neverParen
 
     updMatch :: Match GhcPs (LHsExpr GhcPs) -> Context
