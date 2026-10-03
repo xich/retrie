@@ -31,7 +31,7 @@ allFiles =
 excludeTest :: Verbosity -> Test
 excludeTest v = TestLabel "exclude path prefixes" $
   TestCase $ do
-    withFakeHgRepo [] allFiles $ \dir -> do
+    withFakeGitRepo [] allFiles $ \dir -> do
       let opts = optionsWithDefaultFixities $ optionsWithExtraIgnores dir v
       filepaths <- getTargetFiles opts []
       assertBool (unlines ["Expected ", show excludedPaths,
