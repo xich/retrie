@@ -75,7 +75,9 @@ library
     Retrie.Types,
     Retrie.Universe,
     Retrie.Util
-  GHC-Options: -Wall -Werror
+  GHC-Options: -Wall
+  if flag(Werror)
+    GHC-Options: -Werror
   if impl(ghc >= 9.10)
     GHC-Options: -Wno-incomplete-record-selectors
   build-depends:
@@ -110,6 +112,13 @@ Flag BuildExecutable
   Description: build the retrie executable
   Default: True
 
+-- Off by default because Hackage rejects packages that build with -Werror
+-- unconditionally. cabal.project turns it on for development and CI.
+Flag Werror
+  Description: build with -Werror
+  Default: False
+  Manual: True
+
 executable retrie
   if flag(BuildExecutable)
     Buildable: True
@@ -119,7 +128,9 @@ executable retrie
     Main.hs
   hs-source-dirs: bin hse
   other-modules: Fixity
-  GHC-Options: -Wall -Werror -threaded
+  GHC-Options: -Wall -threaded
+  if flag(Werror)
+    GHC-Options: -Werror
   build-depends:
     retrie,
     base >= 4.11 && < 4.23,
@@ -136,7 +147,9 @@ executable demo-retrie
     Main.hs
   hs-source-dirs: demo hse
   other-modules: Fixity
-  GHC-Options: -Wall -Werror -threaded
+  GHC-Options: -Wall -threaded
+  if flag(Werror)
+    GHC-Options: -Werror
   build-depends:
     retrie,
     base >= 4.11 && < 4.23,
