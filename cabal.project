@@ -1,4 +1,4 @@
 packages: .
 
 package retrie
-  flags: +werror
+  flags: +werror +buildexecutable
