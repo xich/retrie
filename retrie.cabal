@@ -14,7 +14,7 @@ license-file: LICENSE
 author: Andrew Farmer <andrew@andrewfarmer.name>
 maintainer: Andrew Farmer <andrew@andrewfarmer.name>
 copyright:
-  Copyright (c) 2025 Andrew Farmer
+  Copyright (c) 2025 Andrew Farmer;
   Copyright (c) 2020-2024 Facebook, Inc. and its affiliates.
 category: Development
 build-type: Simple
