@@ -1,0 +1,199 @@
+name: retrie release
+
+# Pushing a rel-X.Y.Z tag checks that the package builds and passes its tests
+# from its sdist, uploads that sdist and its Haddock docs to Hackage as a
+# package candidate, and creates a GitHub release with the sdist and docs
+# attached and the version's CHANGELOG section as its notes.
+#
+# Publishing the candidate is left to a human: review it on Hackage, then
+# run `cabal upload --publish` (or use the button on the candidate page).
+# If Hackage's doc builder later fails for the published package, the docs
+# attached to the release can be uploaded with `cabal upload -d --publish`.
+#
+# The work is split so that the code being built never runs with anything
+# worth stealing:
+#
+# - build checks out, builds, tests and builds docs with a read-only token
+#   and no secrets, then hands the release files to publish as an artifact.
+# - publish holds the Hackage token and a token that can write releases,
+#   but runs no code from the repo or its dependencies: no checkout and no
+#   toolchain, only curl and gh on the files build produced.
+#
+# Neither job restores the dependency cache that CI uses: caches are shared
+# across the repo's workflows, so a poisoned one would run its code here.
+# Everything is built from scratch instead.
+
+on:
+  push:
+    tags:
+      - 'rel-*'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Build ${{ github.ref_name }}
+    permissions:
+      contents: read
+    env:
+      ghc: '9.14.1'
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Check Tag Matches Version
+        id: check
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version: *//p' retrie.cabal)
+          if [ "rel-$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match retrie.cabal version $version"
+            exit 1
+          fi
+          # The heading must carry a real release date, so a section still
+          # marked "Unreleased" (or similar) can't be published.
+          v=${version//./\\.}
+          heading=$(grep -E "^$v( |$)" CHANGELOG.md | head -n 1)
+          if [ -z "$heading" ]; then
+            echo "::error::CHANGELOG.md has no section for $version"
+            exit 1
+          fi
+          date=$(sed -nE "s/^$v \(([A-Z][a-z]+ [0-9]{1,2}, [0-9]{4})\)$/\1/p" <<< "$heading")
+          if [ -z "$date" ] || ! python3 -c 'import sys, datetime; datetime.datetime.strptime(sys.argv[1], "%B %d, %Y")' "$date" 2> /dev/null; then
+            echo "::error::CHANGELOG.md heading '$heading' must be '$version (Month D, YYYY)'"
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "DIST=$RUNNER_TEMP/dist" >> "$GITHUB_ENV"
+
+      - name: Install System Packages
+        # So the VCS tests run instead of being skipped.
+        shell: bash
+        run: |
+          sudo apt-get install mercurial
+
+      - name: Setup GHC
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ env.ghc }}
+
+      - name: Run cabal update
+        run: cabal update
+
+      - name: Cabal Check
+        shell: bash
+        run: cabal check
+
+      - name: Create sdist
+        shell: bash
+        run: cabal sdist --output-directory="$DIST"
+
+      - name: Build and Test sdist
+        # Unpacked outside the checkout, so cabal.project (and with it
+        # -Werror) doesn't apply: this builds the package the way Hackage
+        # users will, and fails if the sdist is missing any files.
+        shell: bash
+        run: |
+          tar -xzf "$DIST/retrie-$VERSION.tar.gz" -C "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP/retrie-$VERSION"
+          cabal build --enable-tests
+          cabal test --enable-tests
+
+      - name: Build Docs
+        # --enable-documentation also builds docs for the dependencies, so
+        # links to them resolve. --haddock-for-hackage points those links at
+        # the dependencies' Hackage pages.
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/retrie-$VERSION"
+          cabal haddock --haddock-for-hackage --enable-documentation
+          cp "dist-newstyle/retrie-$VERSION-docs.tar.gz" "$DIST/"
+
+      - name: Extract Release Notes
+        shell: bash
+        run: |
+          awk -v v="$VERSION" '
+            /^[0-9]+(\.[0-9]+)+ \(/ { if (found) exit; if (index($0, v " (") == 1) { found = 1; next } }
+            found' CHANGELOG.md > "$DIST/notes.md"
+
+      - name: Upload Release Files
+        uses: actions/upload-artifact@v7
+        with:
+          name: release
+          path: ${{ env.DIST }}
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Publish ${{ github.ref_name }}
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      DIST: ${{ github.workspace }}/dist
+    steps:
+      - name: Download Release Files
+        uses: actions/download-artifact@v8
+        with:
+          name: release
+          path: ${{ env.DIST }}
+
+      # The Hackage uploads use the same endpoints and headers as
+      # `cabal upload` and `cabal upload -d`, so no toolchain is needed.
+
+      - name: Upload Hackage Candidate
+        # Before the GitHub release because it can be repeated: rerunning
+        # the workflow replaces the candidate, while creating the same
+        # release twice fails.
+        shell: bash
+        env:
+          HACKAGE_TOKEN: ${{ secrets.HACKAGE_TOKEN }}
+        run: |
+          curl --fail-with-body --silent --show-error --location \
+            --header "Authorization: X-ApiKey $HACKAGE_TOKEN" \
+            --header "Accept: text/plain" \
+            --form "package=@$DIST/retrie-$VERSION.tar.gz" \
+            https://hackage.haskell.org/packages/candidates
+          # Annotations don't reliably render links; the job summary does.
+          url="https://hackage.haskell.org/package/retrie-$VERSION/candidate"
+          echo "::notice title=Hackage candidate::$url"
+          echo "- Hackage candidate: [retrie-$VERSION]($url)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload Hackage Candidate Docs
+        shell: bash
+        env:
+          HACKAGE_TOKEN: ${{ secrets.HACKAGE_TOKEN }}
+        run: |
+          curl --fail-with-body --silent --show-error --location \
+            --request PUT \
+            --header "Authorization: X-ApiKey $HACKAGE_TOKEN" \
+            --header "Accept: text/plain" \
+            --header "Content-Type: application/x-tar" \
+            --header "Content-Encoding: gzip" \
+            --data-binary "@$DIST/retrie-$VERSION-docs.tar.gz" \
+            "https://hackage.haskell.org/package/retrie-$VERSION/candidate/docs"
+
+      - name: Create GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          url=$(gh release create "$GITHUB_REF_NAME" \
+            "$DIST/retrie-$VERSION.tar.gz" \
+            "$DIST/retrie-$VERSION-docs.tar.gz" \
+            --verify-tag \
+            --title "$VERSION" \
+            --notes-file "$DIST/notes.md")
+          echo "::notice title=GitHub release::$url"
+          echo "- GitHub release: [$VERSION]($url)" >> "$GITHUB_STEP_SUMMARY"
